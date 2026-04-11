@@ -91,7 +91,7 @@ namespace FolderSync.Core.VFS
             var fullPath = GetFullPath(path);
             
             // 使用二进制模式打开进行读取流
-            return await _client.OpenRead(fullPath, FtpDataType.Binary, 0, cancellationToken);
+            return await _client.OpenRead(fullPath, FtpDataType.Binary, 0, true, cancellationToken);
         }
 
         public async Task<Stream> OpenWriteAsync(string path, CancellationToken cancellationToken = default)
@@ -109,7 +109,7 @@ namespace FolderSync.Core.VFS
                 }
             }
             
-            return await _client.OpenWrite(fullPath, FtpDataType.Binary, cancellationToken);
+            return await _client.OpenWrite(fullPath, FtpDataType.Binary, true, cancellationToken);
         }
 
         public async Task DeleteFileAsync(string path, CancellationToken cancellationToken = default)

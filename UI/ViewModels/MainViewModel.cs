@@ -11,11 +11,11 @@ namespace FolderSync.UI.ViewModels
 
         public MainViewModel()
         {
-            // 初始化视图
-            // CurrentView = new DashboardViewModel(); // 后续实现
-
             // 注册导航命令
             NavigateCommand = new RelayCommand(Navigate);
+            
+            // 默认显示 Dashboard
+            Navigate("Dashboard");
         }
 
         public object? CurrentView
@@ -33,7 +33,7 @@ namespace FolderSync.UI.ViewModels
                 switch (name)
                 {
                     case "Dashboard":
-                        // CurrentView = new DashboardViewModel();
+                        CurrentView = new DashboardViewModel();
                         break;
                     case "Tasks":
                         // CurrentView = new TasksViewModel();

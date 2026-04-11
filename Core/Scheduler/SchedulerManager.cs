@@ -75,7 +75,7 @@ namespace FolderSync.Core.Scheduler
                 .Build();
 
             // 因为 SyncExecutor 是一个对象引用，无法通过原生的简单类型 JobDataMap 保存，我们需要将其放入到对象级 JobDataMap 中
-            job.JobDataMap.Put(SyncJob.JobDataKey_SyncExecutor, executor);
+            job.JobDataMap[SyncJob.JobDataKey_SyncExecutor] = executor;
 
             var trigger = TriggerBuilder.Create()
                 .WithIdentity(triggerKey)

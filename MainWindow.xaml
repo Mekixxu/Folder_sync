@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:viewModels="clr-namespace:FolderSync.UI.ViewModels"
+        xmlns:views="clr-namespace:FolderSync.UI.Views"
         mc:Ignorable="d"
         Title="FolderSync Pro" Height="700" Width="1100"
         WindowStartupLocation="CenterScreen"
@@ -90,9 +91,13 @@
             </Border.Effect>
             
             <Grid Margin="20">
-                <!-- 这是一个 ContentControl，根据绑定的 CurrentView 自动切换对应的 UserControl -->
-                <!-- 如果 CurrentView 是空的，显示一个欢迎占位符 -->
+                <!-- DataTemplates mapping ViewModel to View -->
                 <ContentControl Content="{Binding CurrentView}">
+                    <ContentControl.Resources>
+                        <DataTemplate DataType="{x:Type viewModels:DashboardViewModel}">
+                            <views:DashboardView />
+                        </DataTemplate>
+                    </ContentControl.Resources>
                     <ContentControl.Style>
                         <Style TargetType="ContentControl">
                             <Style.Triggers>
