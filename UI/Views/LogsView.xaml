@@ -1,0 +1,104 @@
+<UserControl x:Class="FolderSync.UI.Views.LogsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部工具栏 -->
+        <Border Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="0,0,0,15" Margin="20,10,20,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="运行报告与日志" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                
+                <Button Grid.Column="2" Content="刷新列表" Command="{Binding RefreshCommand}" 
+                        Style="{StaticResource MaterialDesignOutlinedButton}" materialDesign:ButtonAssist.CornerRadius="18"/>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" Margin="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧：日志文件列表 -->
+            <materialDesign:Card Grid.Column="0" Margin="0,0,10,0" UniformCornerRadius="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="15">
+                        <TextBlock Text="历史日志文件" FontWeight="SemiBold"/>
+                    </Border>
+                    
+                    <ListBox Grid.Row="1" ItemsSource="{Binding LogFiles}" SelectedItem="{Binding SelectedLogFile}" Margin="5">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="5">
+                                    <materialDesign:PackIcon Kind="FileDocumentOutline" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                                    <TextBlock Text="{Binding FileName}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.Style>
+                            <Style TargetType="ListBox">
+                                <Style.Triggers>
+                                    <Trigger Property="HasItems" Value="False">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBox">
+                                                    <TextBlock Text="暂无日志文件" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray"/>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ListBox.Style>
+                    </ListBox>
+                </Grid>
+            </materialDesign:Card>
+
+            <!-- 右侧：日志内容查看器 -->
+            <materialDesign:Card Grid.Column="1" Margin="10,0,0,0" UniformCornerRadius="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="15">
+                        <Grid>
+                            <TextBlock Text="{Binding SelectedLogFile.FileName, StringFormat='正在查看: {0}', TargetNullValue='请选择一个日志文件'}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Button HorizontalAlignment="Right" Style="{StaticResource MaterialDesignToolButton}" 
+                                    Command="{Binding OpenInEditorCommand}" ToolTip="在外部编辑器中打开"
+                                    IsEnabled="{Binding IsLogSelected}">
+                                <materialDesign:PackIcon Kind="OpenInNew" Width="20" Height="20"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <TextBox Grid.Row="1" Margin="15" IsReadOnly="True" TextWrapping="NoWrap" 
+                             AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                             Text="{Binding LogContent}" FontFamily="Consolas" FontSize="13"
+                             materialDesign:HintAssist.Hint="日志内容将显示在这里..."/>
+                </Grid>
+            </materialDesign:Card>
+        </Grid>
+    </Grid>
+</UserControl>
