@@ -97,6 +97,9 @@
                         <DataTemplate DataType="{x:Type viewModels:DashboardViewModel}">
                             <views:DashboardView />
                         </DataTemplate>
+                        <DataTemplate DataType="{x:Type viewModels:TaskEditorViewModel}">
+                            <views:TaskEditorView />
+                        </DataTemplate>
                     </ContentControl.Resources>
                     <ContentControl.Style>
                         <Style TargetType="ContentControl">

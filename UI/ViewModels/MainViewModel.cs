@@ -36,7 +36,8 @@ namespace FolderSync.UI.ViewModels
                         CurrentView = new DashboardViewModel();
                         break;
                     case "Tasks":
-                        // CurrentView = new TasksViewModel();
+                        // 暂时直接跳到任务编辑器进行预览
+                        CurrentView = new TaskEditorViewModel(() => Navigate("Dashboard"));
                         break;
                     case "Logs":
                         // CurrentView = new LogsViewModel();

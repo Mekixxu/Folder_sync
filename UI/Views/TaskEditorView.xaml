@@ -1,0 +1,172 @@
+<UserControl x:Class="FolderSync.UI.Views.TaskEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部标题 -->
+        <Border Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="0,0,0,15" Margin="20,10,20,0">
+            <StackPanel Orientation="Horizontal">
+                <Button Style="{StaticResource MaterialDesignToolButton}" Command="{Binding CancelCommand}" Margin="0,0,10,0">
+                    <materialDesign:PackIcon Kind="ArrowLeft" Width="24" Height="24"/>
+                </Button>
+                <TextBlock Text="新建/编辑同步任务" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 中间选项卡配置区域 -->
+        <TabControl Grid.Row="1" Margin="20,10" Style="{StaticResource MaterialDesignFilledTabControl}">
+            <!-- 1. 基础配置 (路径与模式) -->
+            <TabItem Header="基础配置" IsSelected="True">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10">
+                    <StackPanel>
+                        <!-- 任务名称 -->
+                        <TextBox materialDesign:HintAssist.Hint="任务名称 (例如: 工作文档备份)" Style="{StaticResource MaterialDesignOutlinedTextBox}" 
+                                 Text="{Binding TaskName, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Margin="0,10,0,20"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 源路径配置 -->
+                            <materialDesign:Card Grid.Column="0" Padding="15" UniformCornerRadius="8">
+                                <StackPanel>
+                                    <TextBlock Text="源目录 (A)" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+                                    <ComboBox materialDesign:HintAssist.Hint="协议" ItemsSource="{Binding Protocols}" SelectedItem="{Binding SourceProtocol}" Margin="0,0,0,15"/>
+                                    <TextBox materialDesign:HintAssist.Hint="路径 (C:\Data 或 \\192.168.1.10\Share)" Text="{Binding SourcePath}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0,0,0,10"/>
+                                    <Button Content="浏览文件夹" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding BrowseSourceCommand}" HorizontalAlignment="Right"/>
+                                </StackPanel>
+                            </materialDesign:Card>
+
+                            <materialDesign:PackIcon Grid.Column="1" Kind="ArrowRightBold" Width="36" Height="36" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+
+                            <!-- 目标路径配置 -->
+                            <materialDesign:Card Grid.Column="2" Padding="15" UniformCornerRadius="8">
+                                <StackPanel>
+                                    <TextBlock Text="目标目录 (B)" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+                                    <ComboBox materialDesign:HintAssist.Hint="协议" ItemsSource="{Binding Protocols}" SelectedItem="{Binding DestProtocol}" Margin="0,0,0,15"/>
+                                    <TextBox materialDesign:HintAssist.Hint="路径 (D:\Backup 或 /ftp/data/)" Text="{Binding DestPath}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0,0,0,10"/>
+                                    <Button Content="浏览文件夹" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding BrowseDestCommand}" HorizontalAlignment="Right"/>
+                                </StackPanel>
+                            </materialDesign:Card>
+                        </Grid>
+
+                        <!-- 同步模式与比对策略 -->
+                        <TextBlock Text="同步模式与策略" FontWeight="Bold" FontSize="16" Margin="0,30,0,15"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <ComboBox Grid.Column="0" materialDesign:HintAssist.Hint="选择同步模式" ItemsSource="{Binding SyncModes}" SelectedItem="{Binding SelectedSyncMode}" Style="{StaticResource MaterialDesignOutlinedComboBox}"/>
+                            <ComboBox Grid.Column="2" materialDesign:HintAssist.Hint="选择比对引擎" ItemsSource="{Binding DiffStrategies}" SelectedItem="{Binding SelectedDiffStrategy}" Style="{StaticResource MaterialDesignOutlinedComboBox}"/>
+                        </Grid>
+                        
+                        <TextBlock Text="{Binding ModeDescription}" TextWrapping="Wrap" Foreground="Gray" Margin="0,10,0,0" FontSize="13"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 2. 调度与触发器 -->
+            <TabItem Header="计划任务">
+                <StackPanel Margin="10,20">
+                    <TextBlock Text="触发方式配置" FontWeight="Bold" FontSize="16" Margin="0,0,0,20"/>
+                    <RadioButton Content="手动运行 (不自动触发)" IsChecked="{Binding IsManualTrigger}" Margin="0,5" GroupName="TriggerType"/>
+                    <RadioButton Content="周期性运行 (如每隔 N 分钟)" IsChecked="{Binding IsPeriodicTrigger}" Margin="0,5" GroupName="TriggerType"/>
+                    <RadioButton Content="定时运行 (使用 Cron 表达式)" IsChecked="{Binding IsCronTrigger}" Margin="0,5" GroupName="TriggerType"/>
+
+                    <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,20,0,0">
+                        <StackPanel>
+                            <!-- 周期运行配置区 -->
+                            <StackPanel Visibility="{Binding IsPeriodicTrigger, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="每隔多长时间执行一次？" Margin="0,0,0,10"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox Text="{Binding IntervalValue}" Width="100" materialDesign:HintAssist.Hint="数值" Margin="0,0,15,0"/>
+                                    <ComboBox SelectedItem="{Binding IntervalUnit}" Width="100">
+                                        <ComboBoxItem Content="秒"/>
+                                        <ComboBoxItem Content="分钟"/>
+                                        <ComboBoxItem Content="小时"/>
+                                        <ComboBoxItem Content="天"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Cron 运行配置区 -->
+                            <StackPanel Visibility="{Binding IsCronTrigger, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="输入高级 Cron 表达式 (例如 0 0 12 ? * MON 表示每周一中午12点)：" Margin="0,0,0,10"/>
+                                <TextBox Text="{Binding CronExpression}" materialDesign:HintAssist.Hint="0 0 12 ? * *" Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                                <TextBlock Text="支持秒、分、时、日、月、周配置。" Foreground="Gray" Margin="0,5,0,0" FontSize="12"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </TabItem>
+
+            <!-- 3. 过滤规则 -->
+            <TabItem Header="过滤规则 (黑/白名单)">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10">
+                    <StackPanel>
+                        <!-- 扩展名过滤 -->
+                        <TextBlock Text="文件类型过滤" FontWeight="Bold" FontSize="16" Margin="0,10,0,10"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                            <RadioButton Content="全部允许" IsChecked="{Binding FilterTypeNone}" GroupName="ExtFilter" Margin="0,0,15,0"/>
+                            <RadioButton Content="白名单 (仅允许)" IsChecked="{Binding FilterTypeWhitelist}" GroupName="ExtFilter" Margin="0,0,15,0"/>
+                            <RadioButton Content="黑名单 (排除)" IsChecked="{Binding FilterTypeBlacklist}" GroupName="ExtFilter"/>
+                        </StackPanel>
+                        <TextBox materialDesign:HintAssist.Hint="输入扩展名，用逗号分隔 (例如: .docx, .pdf, *.tmp)" Text="{Binding ExtensionFilterText}" Style="{StaticResource MaterialDesignOutlinedTextBox}" Margin="0,0,0,30" IsEnabled="{Binding FilterTypeNone, Converter={StaticResource InvertBooleanConverter}}"/>
+
+                        <!-- 大小过滤 -->
+                        <TextBlock Text="文件大小过滤" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,30">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="最小限制 (MB): " VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox Grid.Column="1" Text="{Binding MinSizeMB}" materialDesign:HintAssist.Hint="不限制留空" Margin="0,0,30,0"/>
+                            <TextBlock Grid.Column="2" Text="最大限制 (MB): " VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox Grid.Column="3" Text="{Binding MaxSizeMB}" materialDesign:HintAssist.Hint="不限制留空"/>
+                        </Grid>
+
+                        <!-- 时间过滤 -->
+                        <TextBlock Text="文件时间过滤" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,30">
+                            <TextBlock Text="仅同步新于 " VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding NewerThanDays}" Width="80" TextAlignment="Center" Margin="10,0"/>
+                            <TextBlock Text=" 天的文件" VerticalAlignment="Center"/>
+                            <TextBlock Text="(留空则不限制时间)" Foreground="Gray" Margin="15,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- 正则表达式高级过滤 -->
+                        <TextBlock Text="高级正则过滤" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                        <TextBox materialDesign:HintAssist.Hint="输入正则表达式以排除匹配的文件或路径 (例如: ^\\temp\\.*)" Text="{Binding RegexPattern}" Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <!-- 底部保存按钮 -->
+        <Border Grid.Row="2" Background="{DynamicResource MaterialDesignPaper}" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,1,0,0" Padding="20">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="取消" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding CancelCommand}" Margin="0,0,15,0" Width="100"/>
+                <Button Content="保存任务" Command="{Binding SaveTaskCommand}" Width="150"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
