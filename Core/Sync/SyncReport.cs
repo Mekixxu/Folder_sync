@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using FolderSync.Core.Diff;
 
 namespace FolderSync.Core.Sync
@@ -21,6 +22,7 @@ namespace FolderSync.Core.Sync
         public int FailedFiles { get; set; }
 
         public string ErrorMessage { get; set; } = string.Empty;
+        public List<SyncErrorDetail> ErrorDetails { get; } = new();
         public bool IsSuccess => string.IsNullOrEmpty(ErrorMessage) && FailedFiles == 0;
 
         public override string ToString()
@@ -29,6 +31,27 @@ namespace FolderSync.Core.Sync
                    $"Created: {CreatedFiles}, Updated: {UpdatedFiles}, Deleted: {DeletedFiles}, Failed: {FailedFiles}. " +
                    (IsSuccess ? "Success" : $"Error: {ErrorMessage}");
         }
+    }
+
+    /// <summary>
+    /// 报告中的错误明细（用于写入报告文件，便于排查）
+    /// </summary>
+    public class SyncErrorDetail
+    {
+        public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
+        public string ItemPath { get; set; } = string.Empty;
+        public string Context { get; set; } = string.Empty;
+        public string ErrorType { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class StateSnapshot
+    {
+        public bool Exists { get; set; }
+        public bool IsDirectory { get; set; }
+        public long Size { get; set; }
+        public DateTime? LastWriteUtc { get; set; }
+        public string? Hash { get; set; }
     }
 
     /// <summary>

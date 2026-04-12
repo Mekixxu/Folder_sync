@@ -1,7 +1,10 @@
 using System;
 using System.IO;
 using System.Windows;
+using System.Windows.Media;
+using FolderSync.Core.Config;
 using FolderSync.Core.Scheduler;
+using FolderSync.UI.Localization;
 using Serilog;
 
 namespace FolderSync
@@ -24,7 +27,10 @@ namespace FolderSync
 
             try
             {
-                // 2. 启动 Quartz 定时任务调度引擎
+                // 2. 加载显示与语言设置
+                ApplyDisplaySettings();
+
+                // 3. 启动 Quartz 定时任务调度引擎
                 await SchedulerManager.Instance.StartAsync();
             }
             catch (Exception ex)
@@ -63,19 +69,44 @@ namespace FolderSync
                 Directory.CreateDirectory(logDirectory);
             }
 
+            // 运行日志文件：无固定前缀，使用时间戳+进程号，避免重名并便于追溯单次运行
+            string runtimeLogFile = Path.Combine(
+                logDirectory,
+                $"{DateTime.Now:yyyyMMdd_HHmmss_fff}_{Environment.ProcessId}.txt"
+            );
+
             // 配置 Serilog
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 // 写入到控制台 (调试时有用)
                 .WriteTo.Debug()
-                // 写入到滚动文件，每天产生一个新文件，最多保留 30 天
+                // 写入到运行日志文件（每次启动一个新文件，避免并发冲突）
                 .WriteTo.File(
-                    Path.Combine(logDirectory, "foldersync-.txt"), 
-                    rollingInterval: RollingInterval.Day,
+                    runtimeLogFile,
                     retainedFileCountLimit: 30,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
                 )
                 .CreateLogger();
+        }
+
+        private void ApplyDisplaySettings()
+        {
+            var settings = new SettingsRepository().Load();
+            LocalizationService.ApplyLanguage(settings.Language);
+
+            if (settings.UiScale < 0.8) settings.UiScale = 0.8;
+            if (settings.UiScale > 2.0) settings.UiScale = 2.0;
+
+            Resources["AppZoomScale"] = settings.UiScale;
+
+            try
+            {
+                Resources["AppFontFamily"] = new FontFamily(settings.FontFamily);
+            }
+            catch
+            {
+                Resources["AppFontFamily"] = new FontFamily("Microsoft YaHei UI");
+            }
         }
     }
 }

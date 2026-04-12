@@ -63,17 +63,20 @@ namespace FolderSync.UI.ViewModels
             {
                 var files = Directory.GetFiles(_logsDirectory, "*.txt")
                     .Select(f => new FileInfo(f))
-                    .OrderByDescending(f => f.LastWriteTime)
+                    .Select(f => new LogFileItemViewModel
+                    {
+                        FileName = f.Name,
+                        FullPath = f.FullName,
+                        LastModified = f.LastWriteTime,
+                        Kind = DetectLogKind(f.FullName)
+                    })
+                    .OrderBy(f => f.KindPriority)
+                    .ThenByDescending(f => f.LastModified)
                     .ToList();
 
                 foreach (var file in files)
                 {
-                    LogFiles.Add(new LogFileItemViewModel
-                    {
-                        FileName = file.Name,
-                        FullPath = file.FullName,
-                        LastModified = file.LastWriteTime
-                    });
+                    LogFiles.Add(file);
                 }
             }
         }
@@ -120,6 +123,26 @@ namespace FolderSync.UI.ViewModels
                 }
             }
         }
+
+        private string DetectLogKind(string path)
+        {
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(stream);
+                var firstLine = reader.ReadLine() ?? string.Empty;
+                if (firstLine.StartsWith("TaskName:", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "Report";
+                }
+            }
+            catch
+            {
+                // ignore read failures for classification
+            }
+
+            return "Runtime";
+        }
     }
 
     /// <summary>
@@ -130,5 +153,7 @@ namespace FolderSync.UI.ViewModels
         public string FileName { get; set; } = string.Empty;
         public string FullPath { get; set; } = string.Empty;
         public DateTime LastModified { get; set; }
+        public string Kind { get; set; } = "Runtime";
+        public int KindPriority => string.Equals(Kind, "Report", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
     }
 }

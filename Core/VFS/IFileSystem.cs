@@ -12,6 +12,11 @@ namespace FolderSync.Core.VFS
     public interface IFileSystem : IDisposable
     {
         /// <summary>
+        /// 文件系统根标识（用于状态库中的任务键推导）
+        /// </summary>
+        string RootIdentifier { get; }
+
+        /// <summary>
         /// 连接到文件系统（如需要认证）
         /// </summary>
         Task ConnectAsync(CancellationToken cancellationToken = default);

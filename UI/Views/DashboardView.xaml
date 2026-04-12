@@ -6,58 +6,58 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="800">
-    <Grid>
+    <Grid Margin="6">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- 顶部统计卡片 -->
-        <UniformGrid Grid.Row="0" Columns="3" Margin="0,0,0,20">
+        <UniformGrid Grid.Row="0" Columns="3" Margin="0,0,0,18">
             <!-- 卡片1: 活动任务 -->
-            <materialDesign:Card Margin="10" Padding="20" Background="{DynamicResource PrimaryHueMidBrush}" Foreground="White" UniformCornerRadius="8">
+            <materialDesign:Card Margin="10,6" Padding="18" Background="{StaticResource AppSurfaceBrush}" UniformCornerRadius="10">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <materialDesign:PackIcon Kind="FormatListChecks" Width="24" Height="24" VerticalAlignment="Center"/>
-                        <TextBlock Text="活动任务" FontSize="16" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        <materialDesign:PackIcon Kind="FormatListChecks" Width="22" Height="22" VerticalAlignment="Center" Foreground="{StaticResource InfoBrush}"/>
+                        <TextBlock Text="{DynamicResource Dashboard.ActiveTasks}" FontSize="16" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock Text="{Binding ActiveTaskCount}" FontSize="36" FontWeight="Bold" HorizontalAlignment="Right"/>
+                    <TextBlock Text="{Binding ActiveTaskCount}" FontSize="34" FontWeight="Bold" HorizontalAlignment="Right" Foreground="{StaticResource PrimaryTextBrush}"/>
                 </StackPanel>
             </materialDesign:Card>
 
             <!-- 卡片2: 今日同步文件数 -->
-            <materialDesign:Card Margin="10" Padding="20" Background="{DynamicResource SecondaryHueMidBrush}" Foreground="White" UniformCornerRadius="8">
+            <materialDesign:Card Margin="10,6" Padding="18" Background="{StaticResource AppSurfaceBrush}" UniformCornerRadius="10">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <materialDesign:PackIcon Kind="FileDocumentMultiple" Width="24" Height="24" VerticalAlignment="Center"/>
-                        <TextBlock Text="今日同步文件" FontSize="16" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        <materialDesign:PackIcon Kind="FileDocumentMultiple" Width="22" Height="22" VerticalAlignment="Center" Foreground="{StaticResource SuccessBrush}"/>
+                        <TextBlock Text="{DynamicResource Dashboard.TodaySynced}" FontSize="16" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock Text="{Binding TodaySyncCount}" FontSize="36" FontWeight="Bold" HorizontalAlignment="Right"/>
+                    <TextBlock Text="{Binding TodaySyncCount}" FontSize="34" FontWeight="Bold" HorizontalAlignment="Right" Foreground="{StaticResource PrimaryTextBrush}"/>
                 </StackPanel>
             </materialDesign:Card>
 
             <!-- 卡片3: 失败任务数 -->
-            <materialDesign:Card Margin="10" Padding="20" Background="#F44336" Foreground="White" UniformCornerRadius="8">
+            <materialDesign:Card Margin="10,6" Padding="18" Background="{StaticResource AppSurfaceBrush}" UniformCornerRadius="10">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <materialDesign:PackIcon Kind="AlertCircleOutline" Width="24" Height="24" VerticalAlignment="Center"/>
-                        <TextBlock Text="今日失败数" FontSize="16" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        <materialDesign:PackIcon Kind="AlertCircleOutline" Width="22" Height="22" VerticalAlignment="Center" Foreground="{StaticResource DangerBrush}"/>
+                        <TextBlock Text="{DynamicResource Dashboard.TodayErrors}" FontSize="16" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock Text="{Binding TodayErrorCount}" FontSize="36" FontWeight="Bold" HorizontalAlignment="Right"/>
+                    <TextBlock Text="{Binding TodayErrorCount}" FontSize="34" FontWeight="Bold" HorizontalAlignment="Right" Foreground="{StaticResource PrimaryTextBrush}"/>
                 </StackPanel>
             </materialDesign:Card>
         </UniformGrid>
 
         <!-- 下方任务列表概览 -->
-        <materialDesign:Card Grid.Row="1" Margin="10" UniformCornerRadius="8">
+        <materialDesign:Card Grid.Row="1" Margin="10,6" UniformCornerRadius="10">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="20">
-                    <TextBlock Text="正在运行的任务" FontSize="18" FontWeight="SemiBold"/>
+                <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="18">
+                    <TextBlock Text="{DynamicResource Dashboard.RunningTasks}" Style="{StaticResource SectionTitleTextStyle}"/>
                 </Border>
 
                 <!-- 这里后续可以绑定一个 ListView -->
@@ -85,7 +85,7 @@
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="ListView">
-                                                <TextBlock Text="暂无正在运行的同步任务" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="16"/>
+                                                <TextBlock Text="{DynamicResource Dashboard.EmptyRunning}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource SecondaryTextBrush}" FontSize="16"/>
                                             </ControlTemplate>
                                         </Setter.Value>
                                     </Setter>

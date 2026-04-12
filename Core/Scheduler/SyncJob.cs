@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using FolderSync.Core.Reporting;
 using FolderSync.Core.Sync;
 using Quartz;
 using Serilog;
@@ -36,14 +37,15 @@ namespace FolderSync.Core.Scheduler
             {
                 // 执行同步操作
                 var report = await executor.ExecuteAsync(context.CancellationToken);
+                var reportPath = SyncReportFileWriter.Write(taskId, taskName, report);
                 
                 if (report.IsSuccess)
                 {
-                    Log.Information("Scheduled sync job {TaskName} finished successfully. Report: {@Report}", taskName, report);
+                    Log.Information("Scheduled sync job {TaskName} finished successfully. ReportFile: {ReportPath} Report: {@Report}", taskName, reportPath, report);
                 }
                 else
                 {
-                    Log.Warning("Scheduled sync job {TaskName} finished with errors. Report: {@Report}", taskName, report);
+                    Log.Warning("Scheduled sync job {TaskName} finished with errors. ReportFile: {ReportPath} Report: {@Report}", taskName, reportPath, report);
                 }
             }
             catch (Exception ex)

@@ -6,14 +6,19 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="800">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </UserControl.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- 顶部工具栏 -->
-        <Border Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="0,0,0,15" Margin="20,10,20,0">
+        <Border Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="0,0,0,12" Margin="20,10,20,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -21,75 +26,125 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" Text="任务管理" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="0" Text="{DynamicResource Tasks.Title}" Style="{StaticResource PageTitleTextStyle}"/>
                 
-                <Button Grid.Column="2" Content="+ 新建同步任务" Command="{Binding CreateNewTaskCommand}" 
-                        Style="{StaticResource MaterialDesignRaisedButton}" materialDesign:ButtonAssist.CornerRadius="18"/>
+                <Button Grid.Column="2" Content="{DynamicResource Tasks.NewTask}" Command="{Binding CreateNewTaskCommand}" 
+                        Style="{StaticResource PrimaryActionButtonStyle}" materialDesign:ButtonAssist.CornerRadius="18" Margin="0"/>
             </Grid>
         </Border>
 
+        <!-- 批量操作和分析进度 -->
+        <materialDesign:Card Grid.Row="1" Margin="20,12,20,0" Padding="14" UniformCornerRadius="10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource Tasks.BulkTitle}" Style="{StaticResource SectionTitleTextStyle}" />
+                    <TextBlock Text="{Binding AnalysisStatusText}" Margin="0,4,0,0" Foreground="{StaticResource SecondaryTextBrush}" FontSize="{StaticResource FontMeta}" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="{DynamicResource Tasks.Analyze}"
+                        Command="{Binding AnalyzeSelectedTasksCommand}"
+                        Style="{StaticResource SecondaryActionButtonStyle}"/>
+                    <Button Content="{DynamicResource Tasks.Execute}"
+                        Command="{Binding ExecuteSelectedTasksCommand}"
+                        Style="{StaticResource SecondaryActionButtonStyle}"/>
+                    <Button Content="{DynamicResource Tasks.Sync}"
+                        Command="{Binding SyncSelectedTasksCommand}"
+                        Style="{StaticResource PrimaryActionButtonStyle}" Margin="0"/>
+                </StackPanel>
+
+                <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Height="8"
+                         Margin="0,12,0,2"
+                         Maximum="{Binding AnalysisProgressMaximum}"
+                         Value="{Binding AnalysisProgressValue}"
+                         Visibility="{Binding IsAnalysisProgressVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            </Grid>
+        </materialDesign:Card>
+
         <!-- 任务列表区域 -->
-        <ListView Grid.Row="1" Margin="20" ItemsSource="{Binding Tasks}" HorizontalContentAlignment="Stretch">
+        <ListView Grid.Row="2" Margin="20" ItemsSource="{Binding Tasks}" HorizontalContentAlignment="Stretch">
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <materialDesign:Card Margin="0,5,0,5" Padding="15" UniformCornerRadius="8">
+                    <materialDesign:Card Margin="0,5,0,5" Padding="14" UniformCornerRadius="10">
                         <Grid>
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- 左侧状态图标 -->
-                            <materialDesign:PackIcon Grid.Column="0" Kind="{Binding StatusIcon}" 
-                                                     Foreground="{Binding StatusColor}" 
-                                                     Width="40" Height="40" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                            <CheckBox Grid.Column="0"
+                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,12,0"/>
+
+                            <!-- 分析状态图标（✅ 可点击查看分析） -->
+                            <Button Grid.Column="1"
+                                    Command="{Binding DataContext.OpenTaskAnalysisCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                    CommandParameter="{Binding}"
+                                    ToolTip="{DynamicResource Tasks.AnalysisStatusTip}"
+                                    Padding="4"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,12,0">
+                                <materialDesign:PackIcon Kind="{Binding AnalysisStatusIcon}"
+                                                         Foreground="{Binding AnalysisStatusColor}"
+                                                         Width="24"
+                                                         Height="24"/>
+                            </Button>
 
                             <!-- 中间任务详情 -->
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                                     <TextBlock Text="{Binding TaskName}" FontSize="16" FontWeight="Bold"/>
-                                    <Border Background="{DynamicResource MaterialDesignDivider}" CornerRadius="4" Padding="5,2" Margin="10,0,0,0">
-                                        <TextBlock Text="{Binding SyncMode}" FontSize="11" Foreground="{DynamicResource MaterialDesignBody}"/>
+                                    <Border Background="{StaticResource AppSurfaceAltBrush}" CornerRadius="4" Padding="6,2" Margin="10,0,0,0">
+                                        <TextBlock Text="{Binding SyncMode}" FontSize="{StaticResource FontMeta}" Foreground="{StaticResource SecondaryTextBrush}"/>
                                     </Border>
                                 </StackPanel>
                                 
                                 <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                                    <materialDesign:PackIcon Kind="FolderSearchOutline" Width="16" Height="16" Foreground="Gray" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding SourcePath}" Foreground="Gray" Margin="5,0,10,0" VerticalAlignment="Center"/>
+                                    <materialDesign:PackIcon Kind="FolderSearchOutline" Width="16" Height="16" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding SourcePath}" Foreground="{StaticResource SecondaryTextBrush}" Margin="5,0,10,0" VerticalAlignment="Center"/>
                                     
-                                    <materialDesign:PackIcon Kind="ArrowRight" Width="16" Height="16" Foreground="Gray" VerticalAlignment="Center"/>
+                                    <materialDesign:PackIcon Kind="ArrowRight" Width="16" Height="16" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Center"/>
                                     
-                                    <materialDesign:PackIcon Kind="FolderUploadOutline" Width="16" Height="16" Foreground="Gray" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                                    <TextBlock Text="{Binding DestPath}" Foreground="Gray" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                    <materialDesign:PackIcon Kind="FolderUploadOutline" Width="16" Height="16" Foreground="{StaticResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                    <TextBlock Text="{Binding DestPath}" Foreground="{StaticResource SecondaryTextBrush}" Margin="5,0,0,0" VerticalAlignment="Center"/>
                                 </StackPanel>
                                 
-                                <TextBlock Text="{Binding ScheduleInfo}" Foreground="DarkGray" FontSize="12" Margin="0,5,0,0"/>
+                                <TextBlock Text="{Binding ScheduleInfo}" Foreground="{StaticResource SecondaryTextBrush}" FontSize="{StaticResource FontMeta}" Margin="0,6,0,0"/>
                             </StackPanel>
 
-                            <!-- 右侧操作按钮 -->
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Style="{StaticResource MaterialDesignFloatingActionMiniSecondaryButton}" 
-                                        Command="{Binding DataContext.RunTaskCommand, RelativeSource={RelativeSource AncestorType=ListView}}" 
-                                        CommandParameter="{Binding}"
-                                        ToolTip="立即运行" Margin="5,0">
-                                    <materialDesign:PackIcon Kind="Play" Width="20" Height="20"/>
-                                </Button>
-                                
-                                <Button Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}" 
-                                        Command="{Binding DataContext.EditTaskCommand, RelativeSource={RelativeSource AncestorType=ListView}}" 
-                                        CommandParameter="{Binding}"
-                                        ToolTip="编辑任务" Margin="5,0">
-                                    <materialDesign:PackIcon Kind="Pencil" Width="20" Height="20"/>
-                                </Button>
-                                
-                                <Button Style="{StaticResource MaterialDesignFloatingActionMiniButton}" Background="#F44336" BorderBrush="#F44336"
-                                        Command="{Binding DataContext.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=ListView}}" 
-                                        CommandParameter="{Binding}"
-                                        ToolTip="删除任务" Margin="5,0">
-                                    <materialDesign:PackIcon Kind="TrashCan" Width="20" Height="20" Foreground="White"/>
-                                </Button>
-                            </StackPanel>
+                            <!-- 右侧三点菜单 -->
+                            <materialDesign:PopupBox Grid.Column="3"
+                                                     HorizontalAlignment="Right"
+                                                     VerticalAlignment="Center"
+                                                     PlacementMode="BottomAndAlignRightEdges">
+                                <materialDesign:PopupBox.ToggleContent>
+                                    <materialDesign:PackIcon Kind="DotsVertical" Width="22" Height="22"/>
+                                </materialDesign:PopupBox.ToggleContent>
+                                <StackPanel MinWidth="120">
+                                    <Button Content="{DynamicResource Common.Edit}"
+                                            Command="{Binding DataContext.EditTaskCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                            CommandParameter="{Binding}"
+                                            HorizontalContentAlignment="Left"/>
+                                    <Button Content="{DynamicResource Common.Delete}"
+                                            Command="{Binding DataContext.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                            CommandParameter="{Binding}"
+                                            HorizontalContentAlignment="Left"/>
+                                </StackPanel>
+                            </materialDesign:PopupBox>
                         </Grid>
                     </materialDesign:Card>
                 </DataTemplate>
@@ -104,8 +159,8 @@
                                     <ControlTemplate TargetType="ListView">
                                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <materialDesign:PackIcon Kind="TextBoxSearchOutline" Width="80" Height="80" Foreground="{DynamicResource MaterialDesignDivider}" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="暂无同步任务" FontSize="18" Foreground="Gray" HorizontalAlignment="Center" Margin="0,15,0,0"/>
-                                            <TextBlock Text="点击右上角 [新建同步任务] 开始" FontSize="14" Foreground="DarkGray" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                                            <TextBlock Text="{DynamicResource Tasks.EmptyTitle}" FontSize="18" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Center" Margin="0,15,0,0"/>
+                                            <TextBlock Text="{DynamicResource Tasks.EmptyHint}" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                                         </StackPanel>
                                     </ControlTemplate>
                                 </Setter.Value>

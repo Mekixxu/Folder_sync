@@ -14,17 +14,17 @@
         </Grid.RowDefinitions>
 
         <!-- 顶部标题 -->
-        <Border Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="0,0,0,15" Margin="20,10,20,0">
+        <Border Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="0,0,0,12" Margin="20,10,20,0">
             <StackPanel Orientation="Horizontal">
                 <Button Style="{StaticResource MaterialDesignToolButton}" Command="{Binding CancelCommand}" Margin="0,0,10,0">
                     <materialDesign:PackIcon Kind="ArrowLeft" Width="24" Height="24"/>
                 </Button>
-                <TextBlock Text="新建/编辑同步任务" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <TextBlock Text="新建/编辑同步任务" Style="{StaticResource PageTitleTextStyle}" />
             </StackPanel>
         </Border>
 
         <!-- 中间选项卡配置区域 -->
-        <TabControl Grid.Row="1" Margin="20,10" Style="{StaticResource MaterialDesignFilledTabControl}">
+        <TabControl Grid.Row="1" Margin="20,10" Style="{StaticResource MaterialDesignFilledTabControl}" Padding="6">
             <!-- 1. 基础配置 (路径与模式) -->
             <TabItem Header="基础配置" IsSelected="True">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10">
@@ -41,24 +41,24 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- 源路径配置 -->
-                            <materialDesign:Card Grid.Column="0" Padding="15" UniformCornerRadius="8">
+                            <materialDesign:Card Grid.Column="0" Padding="15" UniformCornerRadius="10">
                                 <StackPanel>
                                     <TextBlock Text="源目录 (A)" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
                                     <ComboBox materialDesign:HintAssist.Hint="协议" ItemsSource="{Binding Protocols}" SelectedItem="{Binding SourceProtocol}" Margin="0,0,0,15"/>
                                     <TextBox materialDesign:HintAssist.Hint="路径 (C:\Data 或 \\192.168.1.10\Share)" Text="{Binding SourcePath}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0,0,0,10"/>
-                                    <Button Content="浏览文件夹" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding BrowseSourceCommand}" HorizontalAlignment="Right"/>
+                                    <Button Content="浏览文件夹" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding BrowseSourceCommand}" HorizontalAlignment="Right" Margin="0"/>
                                 </StackPanel>
                             </materialDesign:Card>
 
                             <materialDesign:PackIcon Grid.Column="1" Kind="ArrowRightBold" Width="36" Height="36" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
 
                             <!-- 目标路径配置 -->
-                            <materialDesign:Card Grid.Column="2" Padding="15" UniformCornerRadius="8">
+                            <materialDesign:Card Grid.Column="2" Padding="15" UniformCornerRadius="10">
                                 <StackPanel>
                                     <TextBlock Text="目标目录 (B)" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
                                     <ComboBox materialDesign:HintAssist.Hint="协议" ItemsSource="{Binding Protocols}" SelectedItem="{Binding DestProtocol}" Margin="0,0,0,15"/>
                                     <TextBox materialDesign:HintAssist.Hint="路径 (D:\Backup 或 /ftp/data/)" Text="{Binding DestPath}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0,0,0,10"/>
-                                    <Button Content="浏览文件夹" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding BrowseDestCommand}" HorizontalAlignment="Right"/>
+                                    <Button Content="浏览文件夹" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding BrowseDestCommand}" HorizontalAlignment="Right" Margin="0"/>
                                 </StackPanel>
                             </materialDesign:Card>
                         </Grid>
@@ -76,7 +76,7 @@
                             <ComboBox Grid.Column="2" materialDesign:HintAssist.Hint="选择比对引擎" ItemsSource="{Binding DiffStrategies}" SelectedItem="{Binding SelectedDiffStrategy}" Style="{StaticResource MaterialDesignOutlinedComboBox}"/>
                         </Grid>
                         
-                        <TextBlock Text="{Binding ModeDescription}" TextWrapping="Wrap" Foreground="Gray" Margin="0,10,0,0" FontSize="13"/>
+                        <TextBlock Text="{Binding ModeDescription}" TextWrapping="Wrap" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,10,0,0" FontSize="13"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -109,7 +109,7 @@
                             <StackPanel Visibility="{Binding IsCronTrigger, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <TextBlock Text="输入高级 Cron 表达式 (例如 0 0 12 ? * MON 表示每周一中午12点)：" Margin="0,0,0,10"/>
                                 <TextBox Text="{Binding CronExpression}" materialDesign:HintAssist.Hint="0 0 12 ? * *" Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
-                                <TextBlock Text="支持秒、分、时、日、月、周配置。" Foreground="Gray" Margin="0,5,0,0" FontSize="12"/>
+                                <TextBlock Text="支持秒、分、时、日、月、周配置。" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,5,0,0" FontSize="12"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -120,42 +120,67 @@
             <TabItem Header="过滤规则 (黑/白名单)">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10">
                     <StackPanel>
-                        <!-- 扩展名过滤 -->
-                        <TextBlock Text="文件类型过滤" FontWeight="Bold" FontSize="16" Margin="0,10,0,10"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                            <RadioButton Content="全部允许" IsChecked="{Binding FilterTypeNone}" GroupName="ExtFilter" Margin="0,0,15,0"/>
-                            <RadioButton Content="白名单 (仅允许)" IsChecked="{Binding FilterTypeWhitelist}" GroupName="ExtFilter" Margin="0,0,15,0"/>
-                            <RadioButton Content="黑名单 (排除)" IsChecked="{Binding FilterTypeBlacklist}" GroupName="ExtFilter"/>
-                        </StackPanel>
-                        <TextBox materialDesign:HintAssist.Hint="输入扩展名，用逗号分隔 (例如: .docx, .pdf, *.tmp)" Text="{Binding ExtensionFilterText}" Style="{StaticResource MaterialDesignOutlinedTextBox}" Margin="0,0,0,30" IsEnabled="{Binding FilterTypeNone, Converter={StaticResource InvertBooleanConverter}}"/>
+                        <TextBlock Text="白名单与黑名单可同时配置；白/黑都留空时，默认全部允许。" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,20"/>
 
-                        <!-- 大小过滤 -->
-                        <TextBlock Text="文件大小过滤" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
-                        <Grid Margin="0,0,0,30">
+                        <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="20"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="最小限制 (MB): " VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <TextBox Grid.Column="1" Text="{Binding MinSizeMB}" materialDesign:HintAssist.Hint="不限制留空" Margin="0,0,30,0"/>
-                            <TextBlock Grid.Column="2" Text="最大限制 (MB): " VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <TextBox Grid.Column="3" Text="{Binding MaxSizeMB}" materialDesign:HintAssist.Hint="不限制留空"/>
+
+                            <!-- 白名单 -->
+                            <materialDesign:Card Grid.Column="0" Padding="15" UniformCornerRadius="10">
+                                <StackPanel>
+                                    <TextBlock Text="白名单 (包括)" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+                                    <TextBox materialDesign:HintAssist.Hint="扩展名（逗号分隔，例如: .docx, .pdf）" Text="{Binding WhitelistExtensionFilterText}" Style="{StaticResource MaterialDesignOutlinedTextBox}" Margin="0,0,0,10"/>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="最小(MB): " VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Grid.Column="1" Text="{Binding WhitelistMinSizeMB}" materialDesign:HintAssist.Hint="留空不限" Margin="0,0,15,0"/>
+                                        <TextBlock Grid.Column="2" Text="最大(MB): " VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Grid.Column="3" Text="{Binding WhitelistMaxSizeMB}" materialDesign:HintAssist.Hint="留空不限"/>
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                        <TextBlock Text="仅包括新于 " VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding WhitelistNewerThanHours}" Width="80" TextAlignment="Center" Margin="10,0"/>
+                                        <TextBlock Text=" 小时的文件" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBox materialDesign:HintAssist.Hint="正则（匹配文件名/路径）" Text="{Binding WhitelistRegexPattern}" Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                                </StackPanel>
+                            </materialDesign:Card>
+
+                            <!-- 黑名单 -->
+                            <materialDesign:Card Grid.Column="2" Padding="15" UniformCornerRadius="10">
+                                <StackPanel>
+                                    <TextBlock Text="黑名单 (排除)" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+                                    <TextBox materialDesign:HintAssist.Hint="扩展名（逗号分隔，例如: .tmp, .bak）" Text="{Binding BlacklistExtensionFilterText}" Style="{StaticResource MaterialDesignOutlinedTextBox}" Margin="0,0,0,10"/>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="最小(MB): " VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Grid.Column="1" Text="{Binding BlacklistMinSizeMB}" materialDesign:HintAssist.Hint="留空不限" Margin="0,0,15,0"/>
+                                        <TextBlock Grid.Column="2" Text="最大(MB): " VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Grid.Column="3" Text="{Binding BlacklistMaxSizeMB}" materialDesign:HintAssist.Hint="留空不限"/>
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                        <TextBlock Text="排除新于 " VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding BlacklistNewerThanHours}" Width="80" TextAlignment="Center" Margin="10,0"/>
+                                        <TextBlock Text=" 小时的文件" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBox materialDesign:HintAssist.Hint="正则（匹配文件名/路径）" Text="{Binding BlacklistRegexPattern}" Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                                </StackPanel>
+                            </materialDesign:Card>
                         </Grid>
-
-                        <!-- 时间过滤 -->
-                        <TextBlock Text="文件时间过滤" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,30">
-                            <TextBlock Text="仅同步新于 " VerticalAlignment="Center"/>
-                            <TextBox Text="{Binding NewerThanDays}" Width="80" TextAlignment="Center" Margin="10,0"/>
-                            <TextBlock Text=" 天的文件" VerticalAlignment="Center"/>
-                            <TextBlock Text="(留空则不限制时间)" Foreground="Gray" Margin="15,0,0,0" VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <!-- 正则表达式高级过滤 -->
-                        <TextBlock Text="高级正则过滤" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
-                        <TextBox materialDesign:HintAssist.Hint="输入正则表达式以排除匹配的文件或路径 (例如: ^\\temp\\.*)" Text="{Binding RegexPattern}" Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -164,8 +189,8 @@
         <!-- 底部保存按钮 -->
         <Border Grid.Row="2" Background="{DynamicResource MaterialDesignPaper}" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,1,0,0" Padding="20">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="取消" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding CancelCommand}" Margin="0,0,15,0" Width="100"/>
-                <Button Content="保存任务" Command="{Binding SaveTaskCommand}" Width="150"/>
+                <Button Content="取消" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding CancelCommand}" Width="100"/>
+                <Button Content="保存任务" Command="{Binding SaveTaskCommand}" Style="{StaticResource PrimaryActionButtonStyle}" Width="150" Margin="0"/>
             </StackPanel>
         </Border>
     </Grid>

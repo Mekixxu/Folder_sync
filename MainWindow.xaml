@@ -9,20 +9,27 @@
         mc:Ignorable="d"
         Title="FolderSync Pro" Height="700" Width="1100"
         WindowStartupLocation="CenterScreen"
-        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        Style="{StaticResource MaterialDesignWindow}"
+        TextElement.Foreground="{StaticResource PrimaryTextBrush}"
         TextElement.FontWeight="Regular"
         TextElement.FontSize="14"
         TextOptions.TextFormattingMode="Ideal"
         TextOptions.TextRenderingMode="Auto"
-        Background="{DynamicResource MaterialDesignPaper}"
-        FontFamily="{DynamicResource MaterialDesignFont}">
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        Background="{StaticResource AppBackgroundBrush}"
+        FontFamily="{DynamicResource AppFontFamily}">
 
     <Window.DataContext>
         <viewModels:MainViewModel />
     </Window.DataContext>
 
     <!-- 整个界面的外层布局：左侧导航 + 右侧主内容区域 -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
     <Grid>
+        <Grid.LayoutTransform>
+            <ScaleTransform ScaleX="{DynamicResource AppZoomScale}" ScaleY="{DynamicResource AppZoomScale}" />
+        </Grid.LayoutTransform>
         <Grid.ColumnDefinitions>
             <!-- 左侧导航栏的宽度 -->
             <ColumnDefinition Width="250" />
@@ -31,7 +38,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- 左侧导航栏 -->
-        <Border Grid.Column="0" Background="{DynamicResource PrimaryHueDarkBrush}">
+        <Border Grid.Column="0" Background="{StaticResource SidebarBackgroundBrush}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -40,57 +47,57 @@
                 </Grid.RowDefinitions>
 
                 <!-- Logo 区域 -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="20,30,20,30">
-                    <materialDesign:PackIcon Kind="FolderSync" Width="32" Height="32" Foreground="White" VerticalAlignment="Center" />
-                    <TextBlock Text="FolderSync Pro" FontSize="20" FontWeight="Bold" Foreground="White" Margin="10,0,0,0" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="20,28,20,24">
+                    <materialDesign:PackIcon Kind="FolderSync" Width="32" Height="32" Foreground="{StaticResource SidebarTextBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="FolderSync Pro" FontSize="20" FontWeight="Bold" Foreground="{StaticResource SidebarTextBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
                 </StackPanel>
 
                 <!-- 导航菜单 -->
-                <StackPanel Grid.Row="1" Margin="10,0">
+                <StackPanel Grid.Row="1" Margin="12,0">
                     
-                    <Button Style="{StaticResource MaterialDesignFlatButton}" Foreground="White" HorizontalContentAlignment="Left" Margin="0,5" Command="{Binding NavigateCommand}" CommandParameter="Dashboard">
+                    <Button Style="{StaticResource SideNavButtonStyle}" Command="{Binding NavigateCommand}" CommandParameter="Dashboard">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ViewDashboard" Width="20" Height="20" Margin="10,0" />
-                            <TextBlock Text="仪表盘 (Dashboard)" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Nav.Dashboard}" VerticalAlignment="Center" LineHeight="20" LineStackingStrategy="BlockLineHeight" />
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource MaterialDesignFlatButton}" Foreground="White" HorizontalContentAlignment="Left" Margin="0,5" Command="{Binding NavigateCommand}" CommandParameter="Tasks">
+                    <Button Style="{StaticResource SideNavButtonStyle}" Command="{Binding NavigateCommand}" CommandParameter="Tasks">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="FormatListChecks" Width="20" Height="20" Margin="10,0" />
-                            <TextBlock Text="任务管理 (Tasks)" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Nav.Tasks}" VerticalAlignment="Center" LineHeight="20" LineStackingStrategy="BlockLineHeight" />
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource MaterialDesignFlatButton}" Foreground="White" HorizontalContentAlignment="Left" Margin="0,5" Command="{Binding NavigateCommand}" CommandParameter="Logs">
+                    <Button Style="{StaticResource SideNavButtonStyle}" Command="{Binding NavigateCommand}" CommandParameter="Logs">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="FileDocumentMultiple" Width="20" Height="20" Margin="10,0" />
-                            <TextBlock Text="运行报告 (Logs)" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Nav.Logs}" VerticalAlignment="Center" LineHeight="20" LineStackingStrategy="BlockLineHeight" />
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource MaterialDesignFlatButton}" Foreground="White" HorizontalContentAlignment="Left" Margin="0,5" Command="{Binding NavigateCommand}" CommandParameter="Settings">
+                    <Button Style="{StaticResource SideNavButtonStyle}" Command="{Binding NavigateCommand}" CommandParameter="Settings">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Cog" Width="20" Height="20" Margin="10,0" />
-                            <TextBlock Text="系统设置 (Settings)" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Nav.Settings}" VerticalAlignment="Center" LineHeight="20" LineStackingStrategy="BlockLineHeight" />
                         </StackPanel>
                     </Button>
 
                 </StackPanel>
 
                 <!-- 底部信息 -->
-                <TextBlock Grid.Row="2" Text="v1.0.0 Beta" Foreground="LightGray" Margin="20" FontSize="12" />
+                <TextBlock Grid.Row="2" Text="v0.0.18 Beta" Foreground="#BFC7DA" Margin="20,10,20,18" FontSize="12" />
             </Grid>
         </Border>
 
         <!-- 右侧主内容区域 (动态切换) -->
-        <Border Grid.Column="1" Background="{DynamicResource MaterialDesignPaper}" CornerRadius="10,0,0,10" Margin="-10,0,0,0">
+        <Border Grid.Column="1" Background="{StaticResource AppSurfaceBrush}" CornerRadius="12,0,0,12" Margin="-10,0,0,0">
             <!-- 增加一点阴影让左右层级感更强 -->
             <Border.Effect>
                 <DropShadowEffect BlurRadius="15" Direction="180" Opacity="0.3" ShadowDepth="2" />
             </Border.Effect>
             
-            <Grid Margin="20">
+            <Grid Margin="22">
                 <!-- DataTemplates mapping ViewModel to View -->
                 <ContentControl Content="{Binding CurrentView}">
                     <ContentControl.Resources>
@@ -105,6 +112,9 @@
                         </DataTemplate>
                         <DataTemplate DataType="{x:Type viewModels:LogsViewModel}">
                             <views:LogsView />
+                        </DataTemplate>
+                        <DataTemplate DataType="{x:Type viewModels:SettingsViewModel}">
+                            <views:SettingsView />
                         </DataTemplate>
                     </ContentControl.Resources>
                     <ContentControl.Style>
@@ -130,4 +140,5 @@
             </Grid>
         </Border>
     </Grid>
+    </ScrollViewer>
 </Window>

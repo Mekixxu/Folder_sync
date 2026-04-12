@@ -13,7 +13,7 @@
         </Grid.RowDefinitions>
 
         <!-- 顶部工具栏 -->
-        <Border Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="0,0,0,15" Margin="20,10,20,0">
+        <Border Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="0,0,0,12" Margin="20,10,20,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -21,10 +21,10 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" Text="运行报告与日志" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="0" Text="{DynamicResource Logs.Title}" Style="{StaticResource PageTitleTextStyle}"/>
                 
-                <Button Grid.Column="2" Content="刷新列表" Command="{Binding RefreshCommand}" 
-                        Style="{StaticResource MaterialDesignOutlinedButton}" materialDesign:ButtonAssist.CornerRadius="18"/>
+                <Button Grid.Column="2" Content="{DynamicResource Logs.Refresh}" Command="{Binding RefreshCommand}" 
+                        Style="{StaticResource SecondaryActionButtonStyle}" materialDesign:ButtonAssist.CornerRadius="18" Margin="0"/>
             </Grid>
         </Border>
 
@@ -35,15 +35,15 @@
             </Grid.ColumnDefinitions>
 
             <!-- 左侧：日志文件列表 -->
-            <materialDesign:Card Grid.Column="0" Margin="0,0,10,0" UniformCornerRadius="8">
+            <materialDesign:Card Grid.Column="0" Margin="0,0,10,0" UniformCornerRadius="10">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     
-                    <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="15">
-                        <TextBlock Text="历史日志文件" FontWeight="SemiBold"/>
+                    <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="14">
+                        <TextBlock Text="{DynamicResource Logs.History}" FontWeight="SemiBold"/>
                     </Border>
                     
                     <ListBox Grid.Row="1" ItemsSource="{Binding LogFiles}" SelectedItem="{Binding SelectedLogFile}" Margin="5">
@@ -51,7 +51,14 @@
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="5">
                                     <materialDesign:PackIcon Kind="FileDocumentOutline" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
-                                    <TextBlock Text="{Binding FileName}" VerticalAlignment="Center"/>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding FileName}" VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                            <TextBlock Text="{Binding Kind}" FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" />
+                                            <TextBlock Text=" · " FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" />
+                                            <TextBlock Text="{Binding LastModified, StringFormat=yyyy-MM-dd HH:mm:ss}" FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" />
+                                        </StackPanel>
+                                    </StackPanel>
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -62,7 +69,7 @@
                                         <Setter Property="Template">
                                             <Setter.Value>
                                                 <ControlTemplate TargetType="ListBox">
-                                                    <TextBlock Text="暂无日志文件" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray"/>
+                                                    <TextBlock Text="{DynamicResource Logs.EmptyFiles}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource SecondaryTextBrush}"/>
                                                 </ControlTemplate>
                                             </Setter.Value>
                                         </Setter>
@@ -75,18 +82,18 @@
             </materialDesign:Card>
 
             <!-- 右侧：日志内容查看器 -->
-            <materialDesign:Card Grid.Column="1" Margin="10,0,0,0" UniformCornerRadius="8">
+            <materialDesign:Card Grid.Column="1" Margin="10,0,0,0" UniformCornerRadius="10">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     
-                    <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="15">
+                    <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="14">
                         <Grid>
                             <TextBlock Text="{Binding SelectedLogFile.FileName, StringFormat='正在查看: {0}', TargetNullValue='请选择一个日志文件'}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             <Button HorizontalAlignment="Right" Style="{StaticResource MaterialDesignToolButton}" 
-                                    Command="{Binding OpenInEditorCommand}" ToolTip="在外部编辑器中打开"
+                                    Command="{Binding OpenInEditorCommand}" ToolTip="{DynamicResource Logs.OpenExternal}"
                                     IsEnabled="{Binding IsLogSelected}">
                                 <materialDesign:PackIcon Kind="OpenInNew" Width="20" Height="20"/>
                             </Button>
@@ -96,7 +103,7 @@
                     <TextBox Grid.Row="1" Margin="15" IsReadOnly="True" TextWrapping="NoWrap" 
                              AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                              Text="{Binding LogContent}" FontFamily="Consolas" FontSize="13"
-                             materialDesign:HintAssist.Hint="日志内容将显示在这里..."/>
+                             materialDesign:HintAssist.Hint="{DynamicResource Logs.ContentHint}"/>
                 </Grid>
             </materialDesign:Card>
         </Grid>

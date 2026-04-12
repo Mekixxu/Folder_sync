@@ -91,3 +91,8 @@ ClientBin/
 *.pfx
 *.publishsettings
 orleans.ncrunchsolution
+
+# Build & publish artifacts (do NOT commit)
+publish/
+*.exe
+*.pdb

@@ -14,6 +14,7 @@ namespace FolderSync.Core.VFS
     public class LocalFileSystem : IFileSystem
     {
         private readonly string _basePath;
+        public string RootIdentifier => $"local:{_basePath.ToLowerInvariant()}";
 
         public LocalFileSystem(string basePath)
         {

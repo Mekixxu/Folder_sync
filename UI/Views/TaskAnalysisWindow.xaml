@@ -1,0 +1,62 @@
+<Window x:Class="FolderSync.UI.Views.TaskAnalysisWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="{Binding TaskTitle}"
+        Height="700" Width="1200"
+        WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </Window.Resources>
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="{Binding TaskTitle}" Style="{StaticResource PageTitleTextStyle}" Margin="0,0,0,12" />
+
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding Items}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  IsReadOnly="False"
+                  SelectionMode="Extended"
+                  HeadersVisibility="Column"
+                  RowBackground="{StaticResource AppSurfaceBrush}"
+                  AlternatingRowBackground="{StaticResource AppSurfaceAltBrush}"
+                  GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="{DynamicResource Analysis.Sync}" Binding="{Binding ShouldSync, Mode=TwoWay}" Width="80"/>
+                <DataGridTextColumn Header="{DynamicResource Analysis.Path}" Binding="{Binding RelativePath}" Width="3*"/>
+                <DataGridTextColumn Header="{DynamicResource Analysis.Direction}" Binding="{Binding DirectionLabel}" Width="90"/>
+                <DataGridTextColumn Header="{DynamicResource Analysis.Reason}" Binding="{Binding Reason}" Width="2*"/>
+                <DataGridTextColumn Header="{DynamicResource Analysis.SourceSize}" Binding="{Binding SourceSize}" Width="130"/>
+                <DataGridTextColumn Header="{DynamicResource Analysis.DestSize}" Binding="{Binding DestSize}" Width="130"/>
+                <DataGridTextColumn Header="{DynamicResource Analysis.SourceTime}" Binding="{Binding SourceLastWrite, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="160"/>
+                <DataGridTextColumn Header="{DynamicResource Analysis.DestTime}" Binding="{Binding DestLastWrite, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="160"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Grid Grid.Row="2" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
+                       Text="{DynamicResource Analysis.UnsavedChanges}"
+                       Foreground="{StaticResource WarningBrush}"
+                       VerticalAlignment="Center"
+                       Visibility="{Binding HasUnsavedChanges, Converter={StaticResource BoolToVisibilityConverter}}"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="{DynamicResource Analysis.Refresh}" Command="{Binding RefreshAnalysisCommand}" Style="{StaticResource SecondaryActionButtonStyle}"/>
+            <Button Content="{DynamicResource Analysis.Save}" Command="{Binding SaveAnalysisCommand}" Style="{StaticResource SecondaryActionButtonStyle}"/>
+            <Button Content="{DynamicResource Analysis.ExecuteSelected}" Command="{Binding ExecuteSelectedCommand}" Style="{StaticResource PrimaryActionButtonStyle}" Margin="0"/>
+        </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

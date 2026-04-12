@@ -42,7 +42,7 @@ namespace FolderSync.UI.ViewModels
                         CurrentView = new LogsViewModel();
                         break;
                     case "Settings":
-                        // CurrentView = new SettingsViewModel();
+                        CurrentView = new SettingsViewModel();
                         break;
                 }
             }

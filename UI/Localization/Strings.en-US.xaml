@@ -1,0 +1,58 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <sys:String x:Key="Nav.Dashboard" xmlns:sys="clr-namespace:System;assembly=mscorlib">Dashboard</sys:String>
+    <sys:String x:Key="Nav.Tasks" xmlns:sys="clr-namespace:System;assembly=mscorlib">Tasks</sys:String>
+    <sys:String x:Key="Nav.Logs" xmlns:sys="clr-namespace:System;assembly=mscorlib">Logs</sys:String>
+    <sys:String x:Key="Nav.Settings" xmlns:sys="clr-namespace:System;assembly=mscorlib">Settings</sys:String>
+
+    <sys:String x:Key="Settings.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Settings</sys:String>
+    <sys:String x:Key="Settings.StartWithWindows" xmlns:sys="clr-namespace:System;assembly=mscorlib">Start With Windows</sys:String>
+    <sys:String x:Key="Settings.MinimizeToTray" xmlns:sys="clr-namespace:System;assembly=mscorlib">Minimize To Tray When Closing</sys:String>
+    <sys:String x:Key="Settings.LogRetentionDays" xmlns:sys="clr-namespace:System;assembly=mscorlib">Log Retention Days</sys:String>
+    <sys:String x:Key="Settings.Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">Language</sys:String>
+    <sys:String x:Key="Settings.FontFamily" xmlns:sys="clr-namespace:System;assembly=mscorlib">Font Family</sys:String>
+    <sys:String x:Key="Settings.Scale" xmlns:sys="clr-namespace:System;assembly=mscorlib">UI Scale</sys:String>
+    <sys:String x:Key="Settings.Save" xmlns:sys="clr-namespace:System;assembly=mscorlib">Save Settings</sys:String>
+    <sys:String x:Key="Settings.HintDays" xmlns:sys="clr-namespace:System;assembly=mscorlib">e.g. 30</sys:String>
+    <sys:String x:Key="Settings.Saved" xmlns:sys="clr-namespace:System;assembly=mscorlib">Settings saved.</sys:String>
+    <sys:String x:Key="Settings.Tip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Info</sys:String>
+
+    <sys:String x:Key="Tasks.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Task Management</sys:String>
+    <sys:String x:Key="Tasks.NewTask" xmlns:sys="clr-namespace:System;assembly=mscorlib">+ New Sync Task</sys:String>
+    <sys:String x:Key="Tasks.BulkTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">Bulk Actions</sys:String>
+    <sys:String x:Key="Tasks.Analyze" xmlns:sys="clr-namespace:System;assembly=mscorlib">Analyze</sys:String>
+    <sys:String x:Key="Tasks.Execute" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execute</sys:String>
+    <sys:String x:Key="Tasks.Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync</sys:String>
+    <sys:String x:Key="Tasks.AnalysisStatusTip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Analysis Status (click after complete)</sys:String>
+    <sys:String x:Key="Tasks.EmptyTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">No Sync Tasks</sys:String>
+    <sys:String x:Key="Tasks.EmptyHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Click [New Sync Task] to start</sys:String>
+
+    <sys:String x:Key="Analysis.Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync?</sys:String>
+    <sys:String x:Key="Analysis.Path" xmlns:sys="clr-namespace:System;assembly=mscorlib">Path</sys:String>
+    <sys:String x:Key="Analysis.Direction" xmlns:sys="clr-namespace:System;assembly=mscorlib">Direction</sys:String>
+    <sys:String x:Key="Analysis.Reason" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reason</sys:String>
+    <sys:String x:Key="Analysis.SourceSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">Source Size(bytes)</sys:String>
+    <sys:String x:Key="Analysis.DestSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">Dest Size(bytes)</sys:String>
+    <sys:String x:Key="Analysis.SourceTime" xmlns:sys="clr-namespace:System;assembly=mscorlib">Source Time</sys:String>
+    <sys:String x:Key="Analysis.DestTime" xmlns:sys="clr-namespace:System;assembly=mscorlib">Dest Time</sys:String>
+    <sys:String x:Key="Analysis.Refresh" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reanalyze</sys:String>
+    <sys:String x:Key="Analysis.Save" xmlns:sys="clr-namespace:System;assembly=mscorlib">Save</sys:String>
+    <sys:String x:Key="Analysis.ExecuteSelected" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execute Selected</sys:String>
+    <sys:String x:Key="Analysis.UnsavedChanges" xmlns:sys="clr-namespace:System;assembly=mscorlib">You have unsaved manual changes</sys:String>
+
+    <sys:String x:Key="Common.Edit" xmlns:sys="clr-namespace:System;assembly=mscorlib">Edit</sys:String>
+    <sys:String x:Key="Common.Delete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Delete</sys:String>
+
+    <sys:String x:Key="Dashboard.ActiveTasks" xmlns:sys="clr-namespace:System;assembly=mscorlib">Active Tasks</sys:String>
+    <sys:String x:Key="Dashboard.TodaySynced" xmlns:sys="clr-namespace:System;assembly=mscorlib">Files Synced Today</sys:String>
+    <sys:String x:Key="Dashboard.TodayErrors" xmlns:sys="clr-namespace:System;assembly=mscorlib">Errors Today</sys:String>
+    <sys:String x:Key="Dashboard.RunningTasks" xmlns:sys="clr-namespace:System;assembly=mscorlib">Running Tasks</sys:String>
+    <sys:String x:Key="Dashboard.EmptyRunning" xmlns:sys="clr-namespace:System;assembly=mscorlib">No running sync tasks</sys:String>
+
+    <sys:String x:Key="Logs.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reports &amp; Logs</sys:String>
+    <sys:String x:Key="Logs.Refresh" xmlns:sys="clr-namespace:System;assembly=mscorlib">Refresh</sys:String>
+    <sys:String x:Key="Logs.History" xmlns:sys="clr-namespace:System;assembly=mscorlib">Log Files</sys:String>
+    <sys:String x:Key="Logs.EmptyFiles" xmlns:sys="clr-namespace:System;assembly=mscorlib">No log files</sys:String>
+    <sys:String x:Key="Logs.OpenExternal" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open in external editor</sys:String>
+    <sys:String x:Key="Logs.ContentHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Log content will appear here...</sys:String>
+</ResourceDictionary>

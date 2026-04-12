@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO.Hashing;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using FolderSync.Core.VFS;
@@ -9,8 +9,8 @@ using FolderSync.Core.VFS;
 namespace FolderSync.Core.Diff
 {
     /// <summary>
-    /// 基于文件内容的哈希（如 SHA256）的深度比对策略
-    /// 计算资源消耗高，网络传输慢，但是最准确，适用于高安全性的文件同步
+    /// 基于文件内容的深度比对策略
+    /// 固定采用 xxHash64（性能优先，允许极低概率碰撞）
     /// </summary>
     public class ChecksumDiffStrategy : IDiffStrategy
     {
@@ -76,14 +76,25 @@ namespace FolderSync.Core.Diff
         }
 
         /// <summary>
-        /// 从指定的文件系统和路径中计算文件的 SHA256 散列值
+        /// 从指定的文件系统和路径中计算文件散列值
         /// </summary>
         private async Task<string> ComputeHashAsync(IFileSystem fs, string path, CancellationToken cancellationToken)
         {
             using var stream = await fs.OpenReadAsync(path, cancellationToken);
-            using var sha256 = SHA256.Create();
-            var hashBytes = await sha256.ComputeHashAsync(stream, cancellationToken);
-            return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+            byte[] hashBytes = await ComputeXxHash64Async(stream, cancellationToken);
+            return Convert.ToHexString(hashBytes);
+        }
+
+        private static async Task<byte[]> ComputeXxHash64Async(System.IO.Stream stream, CancellationToken cancellationToken)
+        {
+            var hasher = new XxHash64();
+            var buffer = new byte[81920];
+            int bytesRead;
+            while ((bytesRead = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
+            {
+                hasher.Append(buffer.AsSpan(0, bytesRead));
+            }
+            return hasher.GetCurrentHash();
         }
     }
 }

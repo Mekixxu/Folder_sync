@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -6,6 +6,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    
+    <!-- 应用版本信息 -->
+    <Version>0.0.18</Version>
+    <AssemblyVersion>0.0.18.0</AssemblyVersion>
+    <FileVersion>0.0.18.0</FileVersion>
+    <Title>FolderSync Pro</Title>
+    <Product>FolderSync Pro</Product>
+    <Description>Advanced Folder Synchronization Tool</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +23,8 @@
     <PackageReference Include="Serilog" Version="4.3.1" />
     <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
+    <PackageReference Include="System.IO.Hashing" Version="8.0.0" />
   </ItemGroup>
 
 </Project>

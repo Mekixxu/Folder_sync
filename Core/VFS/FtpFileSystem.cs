@@ -14,9 +14,14 @@ namespace FolderSync.Core.VFS
     {
         private readonly AsyncFtpClient _client;
         private readonly string _basePath;
+        private readonly string _host;
+        private readonly int _port;
+        public string RootIdentifier => $"ftp:{_host}:{_port}:{_basePath.ToLowerInvariant()}";
 
         public FtpFileSystem(string host, string username, string password, int port = 21, string basePath = "/")
         {
+            _host = host;
+            _port = port;
             _client = new AsyncFtpClient(host, username, password, port);
             
             // 确保基础路径始终以 "/" 结尾
