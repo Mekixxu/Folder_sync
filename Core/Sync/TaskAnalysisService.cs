@@ -213,7 +213,7 @@ namespace FolderSync.Core.Sync
                 return;
             }
 
-            using var r = await from.OpenReadAsync(path, cancellationToken);
+            using var r = await from.OpenReadForCopyAsync(path, cancellationToken);
             using var w = await to.OpenWriteAsync(path, cancellationToken);
             await r.CopyToAsync(w, 81920, cancellationToken);
         }

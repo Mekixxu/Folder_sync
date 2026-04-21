@@ -37,6 +37,13 @@ namespace FolderSync.Core.VFS
         Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// 以复制场景专用方式打开源文件读取。
+        /// 本地/SMB 实现应尽可能加排它锁，防止复制期间被修改；
+        /// 不支持文件锁的协议（如 FTP）可降级为普通读取。
+        /// </summary>
+        Task<Stream> OpenReadForCopyAsync(string path, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// 打开文件用于写入（如果目录不存在会自动创建）
         /// </summary>
         Task<Stream> OpenWriteAsync(string path, CancellationToken cancellationToken = default);

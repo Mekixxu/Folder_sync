@@ -113,13 +113,24 @@ namespace FolderSync.Core.VFS
 
         public Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken = default)
         {
+            return OpenReadInternalAsync(path, FileShare.Read);
+        }
+
+        public Task<Stream> OpenReadForCopyAsync(string path, CancellationToken cancellationToken = default)
+        {
+            // 复制时使用排它读锁，阻止其它进程在复制过程中修改该文件。
+            return OpenReadInternalAsync(path, FileShare.None);
+        }
+
+        private Task<Stream> OpenReadInternalAsync(string path, FileShare fileShare)
+        {
             var fullPath = GetFullPath(path);
             if (!File.Exists(fullPath))
             {
                 throw new FileNotFoundException($"File not found: {fullPath}");
             }
-            
-            return Task.FromResult<Stream>(new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read));
+
+            return Task.FromResult<Stream>(new FileStream(fullPath, FileMode.Open, FileAccess.Read, fileShare, 81920, FileOptions.SequentialScan));
         }
 
         public Task<Stream> OpenWriteAsync(string path, CancellationToken cancellationToken = default)

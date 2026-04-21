@@ -425,7 +425,7 @@ namespace FolderSync.Core.Sync
 
         private static async Task CopyFileAsync(IFileSystem fromFs, IFileSystem toFs, string path, CancellationToken cancellationToken)
         {
-            using var readStream = await fromFs.OpenReadAsync(path, cancellationToken);
+            using var readStream = await fromFs.OpenReadForCopyAsync(path, cancellationToken);
             using var writeStream = await toFs.OpenWriteAsync(path, cancellationToken);
             await readStream.CopyToAsync(writeStream, 81920, cancellationToken);
         }

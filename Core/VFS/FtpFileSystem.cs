@@ -99,6 +99,12 @@ namespace FolderSync.Core.VFS
             return await _client.OpenRead(fullPath, FtpDataType.Binary, 0, true, cancellationToken);
         }
 
+        public Task<Stream> OpenReadForCopyAsync(string path, CancellationToken cancellationToken = default)
+        {
+            // FTP 协议通常不提供跨客户端文件锁，这里降级为普通读取。
+            return OpenReadAsync(path, cancellationToken);
+        }
+
         public async Task<Stream> OpenWriteAsync(string path, CancellationToken cancellationToken = default)
         {
             await ConnectAsync(cancellationToken);
