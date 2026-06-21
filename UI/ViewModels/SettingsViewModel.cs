@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Media;
 using FolderSync.Core.Config;
 using FolderSync.UI.Localization;
+using FolderSync.UI.Services;
 
 namespace FolderSync.UI.ViewModels
 {
@@ -13,6 +14,7 @@ namespace FolderSync.UI.ViewModels
     public class SettingsViewModel : ViewModelBase
     {
         private readonly SettingsRepository _settingsRepository = new();
+        private readonly StartupRegistrationService _startupRegistrationService = new();
 
         public ObservableCollection<LanguageOption> LanguageOptions { get; } = new()
         {
@@ -80,7 +82,7 @@ namespace FolderSync.UI.ViewModels
         private void LoadSettings()
         {
             var settings = _settingsRepository.Load();
-            StartWithWindows = settings.StartWithWindows;
+            StartWithWindows = _startupRegistrationService.IsEnabled() || settings.StartWithWindows;
             MinimizeToTray = settings.MinimizeToTray;
             LogRetentionDays = settings.LogRetentionDays;
             SelectedLanguage = string.IsNullOrWhiteSpace(settings.Language) ? "zh-CN" : settings.Language;
@@ -90,18 +92,22 @@ namespace FolderSync.UI.ViewModels
 
         private void SaveSettings()
         {
-            _settingsRepository.Save(new AppSettings
+            var normalizedUiScale = UiScale < 0.8 ? 0.8 : (UiScale > 2.0 ? 2.0 : UiScale);
+            var settings = new AppSettings
             {
                 StartWithWindows = StartWithWindows,
                 MinimizeToTray = MinimizeToTray,
                 LogRetentionDays = LogRetentionDays < 1 ? 1 : LogRetentionDays,
                 Language = SelectedLanguage,
                 FontFamily = SelectedFontFamily,
-                UiScale = UiScale < 0.8 ? 0.8 : (UiScale > 2.0 ? 2.0 : UiScale)
-            });
+                UiScale = normalizedUiScale
+            };
+
+            _startupRegistrationService.SetEnabled(StartWithWindows);
+            _settingsRepository.Save(settings);
 
             LocalizationService.ApplyLanguage(SelectedLanguage);
-            System.Windows.Application.Current.Resources["AppZoomScale"] = UiScale < 0.8 ? 0.8 : (UiScale > 2.0 ? 2.0 : UiScale);
+            System.Windows.Application.Current.Resources["AppZoomScale"] = normalizedUiScale;
             System.Windows.Application.Current.Resources["AppFontFamily"] = new FontFamily(SelectedFontFamily);
             if (System.Windows.Application.Current is App app)
             {

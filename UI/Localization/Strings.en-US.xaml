@@ -7,7 +7,7 @@
 
     <sys:String x:Key="Settings.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Settings</sys:String>
     <sys:String x:Key="Settings.StartWithWindows" xmlns:sys="clr-namespace:System;assembly=mscorlib">Start With Windows</sys:String>
-    <sys:String x:Key="Settings.MinimizeToTray" xmlns:sys="clr-namespace:System;assembly=mscorlib">Hide To Tray When Closing Or Minimizing</sys:String>
+    <sys:String x:Key="Settings.MinimizeToTray" xmlns:sys="clr-namespace:System;assembly=mscorlib">Hide To Tray When Closing</sys:String>
     <sys:String x:Key="Settings.LogRetentionDays" xmlns:sys="clr-namespace:System;assembly=mscorlib">Log Retention Days</sys:String>
     <sys:String x:Key="Settings.Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">Language</sys:String>
     <sys:String x:Key="Settings.FontFamily" xmlns:sys="clr-namespace:System;assembly=mscorlib">Font Family</sys:String>

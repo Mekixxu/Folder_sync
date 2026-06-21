@@ -132,14 +132,6 @@ namespace FolderSync
             return new SettingsRepository().Load().MinimizeToTray;
         }
 
-        public void HandleMainWindowStateChanged(Window window)
-        {
-            if (!_isExitRequested && window.WindowState == WindowState.Minimized && ShouldMinimizeToTray())
-            {
-                HideMainWindowToTray(window);
-            }
-        }
-
         public bool HandleMainWindowClosing(Window window)
         {
             if (_isExitRequested || !ShouldMinimizeToTray())
