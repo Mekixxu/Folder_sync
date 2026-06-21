@@ -19,16 +19,18 @@ namespace FolderSync.Core.Sync
         public int CreatedFiles { get; set; }
         public int UpdatedFiles { get; set; }
         public int DeletedFiles { get; set; }
+        public int SkippedAlreadyDelivered { get; set; }
         public int FailedFiles { get; set; }
 
         public string ErrorMessage { get; set; } = string.Empty;
         public List<SyncErrorDetail> ErrorDetails { get; } = new();
+        public List<SyncWarningDetail> WarningDetails { get; } = new();
         public bool IsSuccess => string.IsNullOrEmpty(ErrorMessage) && FailedFiles == 0;
 
         public override string ToString()
         {
             return $"Sync [{SyncMode}] finished in {Duration.TotalSeconds:F2}s. " +
-                   $"Created: {CreatedFiles}, Updated: {UpdatedFiles}, Deleted: {DeletedFiles}, Failed: {FailedFiles}. " +
+                   $"Created: {CreatedFiles}, Updated: {UpdatedFiles}, Deleted: {DeletedFiles}, SkippedDelivered: {SkippedAlreadyDelivered}, Failed: {FailedFiles}. " +
                    (IsSuccess ? "Success" : $"Error: {ErrorMessage}");
         }
     }
@@ -42,6 +44,14 @@ namespace FolderSync.Core.Sync
         public string ItemPath { get; set; } = string.Empty;
         public string Context { get; set; } = string.Empty;
         public string ErrorType { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class SyncWarningDetail
+    {
+        public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
+        public string ItemPath { get; set; } = string.Empty;
+        public string Context { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
     }
 

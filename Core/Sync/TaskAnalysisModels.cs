@@ -23,6 +23,8 @@ namespace FolderSync.Core.Sync
         public SyncActionType? ActionType { get; set; }
         public AnalysisDirection Direction { get; set; }
         public string Reason { get; set; } = string.Empty;
+        public bool IsProtectedByDeliveredState { get; set; }
+        public bool HasWarning { get; set; }
 
         public bool ShouldSync { get; set; }
 

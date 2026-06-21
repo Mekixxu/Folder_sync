@@ -28,6 +28,7 @@
     <sys:String x:Key="Tasks.Execute" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execute</sys:String>
     <sys:String x:Key="Tasks.Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync</sys:String>
     <sys:String x:Key="Tasks.AnalysisStatusTip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Analysis Status (click after complete)</sys:String>
+    <sys:String x:Key="Tasks.ResetSendOnceState" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset Send-Once State</sys:String>
     <sys:String x:Key="Tasks.EmptyTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">No Sync Tasks</sys:String>
     <sys:String x:Key="Tasks.EmptyHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Click [New Sync Task] to start</sys:String>
 

@@ -14,6 +14,11 @@ namespace FolderSync.Core.Sync
         /// 单向完全同步：A -> B（A 中新增和修改的都会覆盖到 B，但 B 中独有的文件不会被删除）
         /// </summary>
         OneWayUpdate,
+
+        /// <summary>
+        /// 单向一次性同步：A -> B（每个文件只会成功同步一次；即使 B 端后续删除也不会补发）
+        /// </summary>
+        OneWaySendOnce,
         
         /// <summary>
         /// 单向镜像同步：A -> B（完全让 B 变成 A 的镜像。A 中新增/修改会同步到 B，B 中多余的文件会被删除）

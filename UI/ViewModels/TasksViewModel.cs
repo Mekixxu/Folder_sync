@@ -23,6 +23,7 @@ namespace FolderSync.UI.ViewModels
         private readonly Action<object?> _navigateAction;
         private readonly TaskRepository _taskRepository = new();
         private readonly TaskAnalysisService _analysisService;
+        private readonly OneWayDeliveryStateStore _deliveryStateStore = new();
         private readonly ObservableCollection<SyncTaskDefinition> _definitions = new();
         private bool _isBusy;
         private bool _isAnalysisProgressVisible;
@@ -39,6 +40,7 @@ namespace FolderSync.UI.ViewModels
         public ICommand OpenTaskAnalysisCommand { get; }
         public ICommand EditTaskCommand { get; }
         public ICommand DeleteTaskCommand { get; }
+        public ICommand ResetSendOnceStateCommand { get; }
 
         public bool IsAnalysisProgressVisible
         {
@@ -76,6 +78,7 @@ namespace FolderSync.UI.ViewModels
             OpenTaskAnalysisCommand = new RelayCommand(OpenTaskAnalysis, CanOpenTaskAnalysis);
             EditTaskCommand = new RelayCommand(EditTask);
             DeleteTaskCommand = new RelayCommand(DeleteTask);
+            ResetSendOnceStateCommand = new RelayCommand(ResetSendOnceState);
 
             LoadTasks();
         }
@@ -140,6 +143,8 @@ namespace FolderSync.UI.ViewModels
                     task.PropertyChanged -= TaskItemOnPropertyChanged;
                     Tasks.Remove(task);
                     SchedulerManager.Instance.RemoveJobAsync(task.Id).GetAwaiter().GetResult();
+                    _deliveryStateStore.InitializeAsync().GetAwaiter().GetResult();
+                    _deliveryStateStore.ResetTaskAsync(task.Id).GetAwaiter().GetResult();
                     CommandManager.InvalidateRequerySuggested();
                 }
                 catch (Exception ex)
@@ -172,9 +177,23 @@ namespace FolderSync.UI.ViewModels
                 TaskName = def.TaskName,
                 SourcePath = def.SourcePath,
                 DestPath = def.DestPath,
-                SyncMode = def.SyncMode.ToString(),
+                SyncMode = FormatSyncMode(def.SyncMode),
                 ScheduleInfo = def.IsManualTrigger ? "计划: 手动触发" : $"计划: {SyncTaskFactory.ResolveCronExpression(def)}",
-                IsAnalysisCompleted = hasSavedAnalysis
+                IsAnalysisCompleted = hasSavedAnalysis,
+                IsOneWaySendOnce = def.SyncMode == SyncMode.OneWaySendOnce
+            };
+        }
+
+        private static string FormatSyncMode(SyncMode mode)
+        {
+            return mode switch
+            {
+                SyncMode.OneWayIncremental => "单向增量",
+                SyncMode.OneWayUpdate => "单向更新",
+                SyncMode.OneWaySendOnce => "单向一次性同步",
+                SyncMode.OneWayMirror => "单向镜像",
+                SyncMode.TwoWay => "双向同步",
+                _ => mode.ToString()
             };
         }
 
@@ -341,6 +360,47 @@ namespace FolderSync.UI.ViewModels
             }
         }
 
+        private void ResetSendOnceState(object? parameter)
+        {
+            if (parameter is not TaskListItemViewModel taskVm)
+            {
+                return;
+            }
+
+            var definition = FindDefinition(taskVm.Id);
+            if (definition == null || definition.SyncMode != SyncMode.OneWaySendOnce)
+            {
+                MessageBox.Show("仅单向一次性同步任务支持重置状态。", "操作不可用", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"确定要重置任务“{definition.TaskName}”的一次性同步状态吗？\n\n重置后，下次运行会允许历史文件重新同步。",
+                "重置一次性同步状态",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                _deliveryStateStore.InitializeAsync().GetAwaiter().GetResult();
+                _deliveryStateStore.ResetTaskAsync(definition.Id).GetAwaiter().GetResult();
+                definition.SavedAnalysisItems.Clear();
+                definition.AnalysisSavedAtUtc = null;
+                _taskRepository.Upsert(definition);
+                taskVm.IsAnalysisCompleted = false;
+                MessageBox.Show("该任务的一次性同步状态已重置。", "重置成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"重置一次性同步状态失败：{ex.Message}", "重置失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private sealed record SelectedTaskPair(TaskListItemViewModel TaskVm, SyncTaskDefinition Definition);
     }
 
@@ -355,6 +415,7 @@ namespace FolderSync.UI.ViewModels
         public string DestPath { get; set; } = string.Empty;
         public string SyncMode { get; set; } = string.Empty;
         public string ScheduleInfo { get; set; } = string.Empty;
+        public bool IsOneWaySendOnce { get; set; }
 
         private bool _isSelected;
         public bool IsSelected

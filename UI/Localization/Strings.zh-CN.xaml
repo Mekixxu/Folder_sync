@@ -28,6 +28,7 @@
     <sys:String x:Key="Tasks.Execute" xmlns:sys="clr-namespace:System;assembly=mscorlib">执行</sys:String>
     <sys:String x:Key="Tasks.Sync" xmlns:sys="clr-namespace:System;assembly=mscorlib">同步</sys:String>
     <sys:String x:Key="Tasks.AnalysisStatusTip" xmlns:sys="clr-namespace:System;assembly=mscorlib">分析状态（完成后可点）</sys:String>
+    <sys:String x:Key="Tasks.ResetSendOnceState" xmlns:sys="clr-namespace:System;assembly=mscorlib">重置一次性状态</sys:String>
     <sys:String x:Key="Tasks.EmptyTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">暂无同步任务</sys:String>
     <sys:String x:Key="Tasks.EmptyHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">点击右上角 [新建同步任务] 开始</sys:String>
 

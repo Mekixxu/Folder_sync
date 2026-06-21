@@ -34,10 +34,26 @@ namespace FolderSync.Core.Reporting
             sb.AppendLine($"Duration: {report.Duration.TotalSeconds:F3}s");
             sb.AppendLine($"SyncMode: {report.SyncMode}");
             sb.AppendLine($"Success: {report.IsSuccess}");
-            sb.AppendLine($"Actions: total={report.TotalActions}, create={report.CreatedFiles}, update={report.UpdatedFiles}, delete={report.DeletedFiles}, failed={report.FailedFiles}");
+            sb.AppendLine($"Actions: total={report.TotalActions}, create={report.CreatedFiles}, update={report.UpdatedFiles}, delete={report.DeletedFiles}, skippedDelivered={report.SkippedAlreadyDelivered}, failed={report.FailedFiles}");
             if (!string.IsNullOrWhiteSpace(report.ErrorMessage))
             {
                 sb.AppendLine($"ErrorMessage: {report.ErrorMessage}");
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("WarningDetails:");
+            if (!report.WarningDetails.Any())
+            {
+                sb.AppendLine("  (none)");
+            }
+            else
+            {
+                foreach (var warning in report.WarningDetails)
+                {
+                    sb.AppendLine($"  - [{warning.OccurredAtUtc:yyyy-MM-dd HH:mm:ss.fff}Z] Item={warning.ItemPath}");
+                    sb.AppendLine($"    Context={warning.Context}");
+                    sb.AppendLine($"    Message={warning.Message}");
+                }
             }
 
             sb.AppendLine();

@@ -24,6 +24,8 @@ namespace FolderSync.UI.ViewModels
         public string Reason { get; init; } = string.Empty;
         public FolderSync.Core.Diff.SyncActionType? ActionType { get; init; }
         public AnalysisDirection Direction { get; init; }
+        public bool IsProtectedByDeliveredState { get; init; }
+        public bool HasWarning { get; init; }
 
         public bool ShouldSync
         {
@@ -140,6 +142,8 @@ namespace FolderSync.UI.ViewModels
                 Reason = i.Reason,
                 ActionType = i.ActionType,
                 Direction = i.Direction,
+                IsProtectedByDeliveredState = i.IsProtectedByDeliveredState,
+                HasWarning = i.HasWarning,
                 ShouldSync = i.ShouldSync
             };
         }
@@ -157,6 +161,8 @@ namespace FolderSync.UI.ViewModels
                 ActionType = i.ActionType,
                 Direction = i.Direction,
                 Reason = i.Reason,
+                IsProtectedByDeliveredState = i.IsProtectedByDeliveredState,
+                HasWarning = i.HasWarning,
                 ShouldSync = i.ShouldSync
             }).ToList();
         }

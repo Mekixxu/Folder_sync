@@ -59,7 +59,7 @@ namespace FolderSync.UI.ViewModels
         }
 
         // 同步模式与策略
-        public ObservableCollection<string> SyncModes { get; } = new(new[] { "单向增量 (仅新增)", "单向更新 (新增与修改)", "单向镜像 (让B等于A)", "双向同步 (实验性)" });
+        public ObservableCollection<string> SyncModes { get; } = new(new[] { "单向增量 (仅新增)", "单向更新 (新增与修改)", "单向一次性同步 (仅首次成功后不再补发)", "单向镜像 (让B等于A)", "双向同步 (实验性)" });
         private string _selectedSyncMode = "单向更新 (新增与修改)";
         public string SelectedSyncMode
         {
@@ -155,6 +155,7 @@ namespace FolderSync.UI.ViewModels
             {
                 "单向增量 (仅新增)" => "仅将A目录中新出现的文件复制到B目录，忽略修改。",
                 "单向更新 (新增与修改)" => "A目录中新增和修改的文件会被同步到B目录。B目录独有的文件将保留。",
+                "单向一次性同步 (仅首次成功后不再补发)" => "A中的文件只会成功同步一次。即使B端后续删除，也不会再次补发；如需重发，请重置该任务的一次性同步状态。",
                 "单向镜像 (让B等于A)" => "完全将B目录变成A目录的镜像！B目录中所有多余的文件将会被强制删除。",
                 "双向同步 (实验性)" => "A和B目录互相作为源和目标进行增删改双向同步。",
                 _ => ""
@@ -342,6 +343,7 @@ namespace FolderSync.UI.ViewModels
             SelectedSyncMode = task.SyncMode switch
             {
                 SyncMode.OneWayIncremental => "单向增量 (仅新增)",
+                SyncMode.OneWaySendOnce => "单向一次性同步 (仅首次成功后不再补发)",
                 SyncMode.OneWayMirror => "单向镜像 (让B等于A)",
                 SyncMode.TwoWay => "双向同步 (实验性)",
                 _ => "单向更新 (新增与修改)"
@@ -367,6 +369,7 @@ namespace FolderSync.UI.ViewModels
             return selected switch
             {
                 "单向增量 (仅新增)" => SyncMode.OneWayIncremental,
+                "单向一次性同步 (仅首次成功后不再补发)" => SyncMode.OneWaySendOnce,
                 "单向镜像 (让B等于A)" => SyncMode.OneWayMirror,
                 "双向同步 (实验性)" => SyncMode.TwoWay,
                 _ => SyncMode.OneWayUpdate

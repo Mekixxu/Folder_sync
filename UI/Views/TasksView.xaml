@@ -139,6 +139,11 @@
                                             Command="{Binding DataContext.EditTaskCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
                                             CommandParameter="{Binding}"
                                             HorizontalContentAlignment="Left"/>
+                                    <Button Content="{DynamicResource Tasks.ResetSendOnceState}"
+                                            Command="{Binding DataContext.ResetSendOnceStateCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                            CommandParameter="{Binding}"
+                                            HorizontalContentAlignment="Left"
+                                            Visibility="{Binding IsOneWaySendOnce, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                     <Button Content="{DynamicResource Common.Delete}"
                                             Command="{Binding DataContext.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
                                             CommandParameter="{Binding}"

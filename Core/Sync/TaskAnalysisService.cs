@@ -25,6 +25,7 @@ namespace FolderSync.Core.Sync
             var destFs = SyncTaskFactory.CreateFileSystem(task.DestProtocol, task.DestPath);
             var diff = SyncTaskFactory.CreateDiffStrategy(task.DiffStrategy);
             var filterEngine = SyncTaskFactory.CreateFilterEngine(task.FilterConfiguration ?? new DualListFilterConfiguration());
+            Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null;
 
             await sourceFs.ConnectAsync(cancellationToken);
             await destFs.ConnectAsync(cancellationToken);
@@ -37,11 +38,21 @@ namespace FolderSync.Core.Sync
             var isMirror = task.SyncMode == SyncMode.OneWayMirror;
             var diffActions = (await diff.CompareAsync(filteredSource, filteredDest, sourceFs, destFs, isMirror, cancellationToken)).ToList();
 
+            if (task.SyncMode == SyncMode.OneWaySendOnce)
+            {
+                var stateStore = new OneWayDeliveryStateStore();
+                await stateStore.InitializeAsync(cancellationToken);
+                deliveredRecords = await stateStore.LoadAsync(task.Id, cancellationToken);
+            }
+
             // 按任务模式过滤
             var effectiveActions = diffActions.Where(a => task.SyncMode switch
             {
                 SyncMode.OneWayIncremental => a.ActionType == SyncActionType.Create,
                 SyncMode.OneWayUpdate => a.ActionType == SyncActionType.Create || a.ActionType == SyncActionType.Update,
+                SyncMode.OneWaySendOnce => (a.ActionType == SyncActionType.Create || a.ActionType == SyncActionType.Update)
+                    && a.SourceItem != null
+                    && !(deliveredRecords?.ContainsKey(a.SourceItem.Path) ?? false),
                 _ => true
             }).ToDictionary(
                 a => a.SourceItem?.Path ?? a.DestinationItem?.Path ?? string.Empty,
@@ -72,7 +83,23 @@ namespace FolderSync.Core.Sync
                     DestLastWrite = d?.LastWriteTime
                 };
 
-                if (!inWhite)
+                OneWayDeliveryRecord? deliveredRecord = null;
+                var isProtectedByDeliveredState = task.SyncMode == SyncMode.OneWaySendOnce
+                    && s != null
+                    && deliveredRecords != null
+                    && deliveredRecords.TryGetValue(path, out deliveredRecord);
+
+                if (isProtectedByDeliveredState && deliveredRecord != null)
+                {
+                    item.ShouldSync = false;
+                    item.Direction = AnalysisDirection.None;
+                    item.IsProtectedByDeliveredState = true;
+                    item.HasWarning = await OneWayDeliverySupport.HasSourceChangedAsync(deliveredRecord, s!, sourceFs, cancellationToken);
+                    item.Reason = item.HasWarning
+                        ? "源路径已完成一次性同步，且检测到内容变化，已告警并跳过"
+                        : "已同步过，按一次性规则跳过";
+                }
+                else if (!inWhite)
                 {
                     item.ShouldSync = false;
                     item.Reason = "被过滤规则排除";
@@ -131,6 +158,14 @@ namespace FolderSync.Core.Sync
             var destFs = SyncTaskFactory.CreateFileSystem(task.DestProtocol, task.DestPath);
             await sourceFs.ConnectAsync(cancellationToken);
             await destFs.ConnectAsync(cancellationToken);
+            var isSendOnce = task.SyncMode == SyncMode.OneWaySendOnce;
+            var stateStore = isSendOnce ? new OneWayDeliveryStateStore() : null;
+            Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null;
+            if (stateStore != null)
+            {
+                await stateStore.InitializeAsync(cancellationToken);
+                deliveredRecords = await stateStore.LoadAsync(task.Id, cancellationToken);
+            }
 
             var report = new SyncReport
             {
@@ -146,6 +181,22 @@ namespace FolderSync.Core.Sync
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
+                    if (isSendOnce && deliveredRecords != null && deliveredRecords.TryGetValue(item.RelativePath, out var deliveredRecord))
+                    {
+                        report.SkippedAlreadyDelivered++;
+                        var currentSource = await sourceFs.GetFileInfoAsync(item.RelativePath, cancellationToken);
+                        if (currentSource != null && await OneWayDeliverySupport.HasSourceChangedAsync(deliveredRecord, currentSource, sourceFs, cancellationToken))
+                        {
+                            report.WarningDetails.Add(new SyncWarningDetail
+                            {
+                                ItemPath = item.RelativePath,
+                                Context = "Source changed after first successful delivery",
+                                Message = "该路径已完成一次性同步，检测到源文件内容变化，已按一次性规则跳过。"
+                            });
+                        }
+                        continue;
+                    }
+
                     if (item.ActionType == SyncActionType.Delete)
                     {
                         if (item.Direction == AnalysisDirection.AToB)
@@ -162,14 +213,25 @@ namespace FolderSync.Core.Sync
                         continue;
                     }
 
+                    if (isSendOnce && item.Direction != AnalysisDirection.AToB)
+                    {
+                        report.WarningDetails.Add(new SyncWarningDetail
+                        {
+                            ItemPath = item.RelativePath,
+                            Context = "Invalid manual selection for send-once mode",
+                            Message = "单向一次性同步仅支持 A -> B 的首次投递，该项已跳过。"
+                        });
+                        continue;
+                    }
+
                     // Create / Update / 手动开启
                     if (item.Direction == AnalysisDirection.AToB)
                     {
-                        await CopyPathAsync(sourceFs, destFs, item.RelativePath, item.IsDirectory, cancellationToken);
+                        await CopyPathAsync(sourceFs, destFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
                     }
                     else if (item.Direction == AnalysisDirection.BToA)
                     {
-                        await CopyPathAsync(destFs, sourceFs, item.RelativePath, item.IsDirectory, cancellationToken);
+                        await CopyPathAsync(destFs, sourceFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
                     }
                     else
                     {
@@ -177,11 +239,11 @@ namespace FolderSync.Core.Sync
                         var sourceNewer = (item.SourceLastWrite ?? DateTime.MinValue) >= (item.DestLastWrite ?? DateTime.MinValue);
                         if (sourceNewer)
                         {
-                            await CopyPathAsync(sourceFs, destFs, item.RelativePath, item.IsDirectory, cancellationToken);
+                            await CopyPathAsync(sourceFs, destFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
                         }
                         else
                         {
-                            await CopyPathAsync(destFs, sourceFs, item.RelativePath, item.IsDirectory, cancellationToken);
+                            await CopyPathAsync(destFs, sourceFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
                         }
                     }
 
@@ -205,11 +267,48 @@ namespace FolderSync.Core.Sync
             return report;
         }
 
-        private static async Task CopyPathAsync(IFileSystem from, IFileSystem to, string path, bool isDirectory, CancellationToken cancellationToken)
+        private static async Task CopyPathAsync(
+            IFileSystem from,
+            IFileSystem to,
+            string path,
+            bool isDirectory,
+            bool isSendOnce,
+            string taskId,
+            OneWayDeliveryStateStore? stateStore,
+            Dictionary<string, OneWayDeliveryRecord>? deliveredRecords,
+            CancellationToken cancellationToken)
         {
+            FileItem? sourceItem = null;
+            if (isSendOnce)
+            {
+                sourceItem = await from.GetFileInfoAsync(path, cancellationToken)
+                    ?? throw new InvalidOperationException($"无法获取源项信息：{path}");
+            }
+
             if (isDirectory)
             {
                 await to.CreateDirectoryAsync(path, cancellationToken);
+                if (isSendOnce && sourceItem != null && stateStore != null)
+                {
+                    var directoryRecord = OneWayDeliverySupport.CreateDeliveredRecordFromCopy(path, sourceItem, sourceHash: null);
+                    await stateStore.UpsertAsync(taskId, directoryRecord, cancellationToken);
+                    if (deliveredRecords != null)
+                    {
+                        deliveredRecords[path] = directoryRecord;
+                    }
+                }
+                return;
+            }
+
+            if (isSendOnce && sourceItem != null && stateStore != null)
+            {
+                var copiedHash = await OneWayDeliverySupport.CopyFileAndComputeHashAsync(from, to, path, cancellationToken);
+                var record = OneWayDeliverySupport.CreateDeliveredRecordFromCopy(path, sourceItem, copiedHash);
+                await stateStore.UpsertAsync(taskId, record, cancellationToken);
+                if (deliveredRecords != null)
+                {
+                    deliveredRecords[path] = record;
+                }
                 return;
             }
 
@@ -253,7 +352,7 @@ namespace FolderSync.Core.Sync
         private static string BuildNoActionReason(SyncMode mode, FileItem? s, FileItem? d)
         {
             if (s != null && d != null) return "已一致，无需同步";
-            if (s == null && d != null && mode is SyncMode.OneWayIncremental or SyncMode.OneWayUpdate) return "仅目标端存在，当前模式不删除";
+            if (s == null && d != null && mode is SyncMode.OneWayIncremental or SyncMode.OneWayUpdate or SyncMode.OneWaySendOnce) return "仅目标端存在，当前模式不删除";
             return "无需同步";
         }
 
@@ -270,6 +369,8 @@ namespace FolderSync.Core.Sync
                 ActionType = item.ActionType,
                 Direction = item.Direction,
                 Reason = item.Reason,
+                IsProtectedByDeliveredState = item.IsProtectedByDeliveredState,
+                HasWarning = item.HasWarning,
                 ShouldSync = item.ShouldSync
             };
         }
@@ -287,6 +388,8 @@ namespace FolderSync.Core.Sync
                 ActionType = item.ActionType,
                 Direction = item.Direction,
                 Reason = item.Reason,
+                IsProtectedByDeliveredState = item.IsProtectedByDeliveredState,
+                HasWarning = item.HasWarning,
                 ShouldSync = item.ShouldSync
             };
         }

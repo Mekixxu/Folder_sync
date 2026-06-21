@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿# Folder Sync 程序架构与技术栈分析
+﻿﻿﻿﻿﻿﻿# Folder Sync 程序架构与技术栈分析
 
 ## 1. 需求分析总结
 
@@ -8,6 +8,7 @@
 - **同步模式**：
   - 单向增量（A -> B，仅新增）
   - 单向更新（A -> B，新增+修改）
+  - 单向一次性同步（A -> B，每个文件仅首次成功同步；目标端后续删除也不补发）
   - 单向镜像（A -> B，新增+修改+删除）
   - 双向同步（已接入 SQLite 状态基线，支持可靠判定与冲突处理）
 - **差异比对机制**：
@@ -101,9 +102,9 @@ Folder_sync/
     - `IDiffStrategy.cs`, `SyncActionType.cs`, `SyncAction.cs`
 
 - **同步执行器**
-  - 职责：执行实际复制/删除，收集进度与错误；双向模式使用 SQLite 基线可靠判定。
+  - 职责：执行实际复制/删除，收集进度与错误；双向模式使用 SQLite 基线可靠判定；单向一次性同步使用 SQLite 投递状态避免重复补发。
   - 目录：`Core/Sync`
-  - 关键文件：`SyncExecutor.cs`, `SyncReport.cs`, `SyncMode.cs`, `TwoWayStateStore.cs`, `SyncTaskFactory.cs`
+  - 关键文件：`SyncExecutor.cs`, `SyncReport.cs`, `SyncMode.cs`, `TwoWayStateStore.cs`, `OneWayDeliveryStateStore.cs`, `SyncTaskFactory.cs`
 
 - **任务与设置持久化层**
   - 职责：任务定义与应用设置落盘（JSON），供 UI 与调度层使用。
@@ -149,6 +150,7 @@ Core/
 │  ├─ SyncExecutor.cs
 │  ├─ SyncReport.cs
 │  ├─ TwoWayStateStore.cs
+│  ├─ OneWayDeliveryStateStore.cs
 │  └─ SyncTaskFactory.cs
 ├─ Config/
 │  ├─ SyncTaskDefinition.cs
@@ -199,7 +201,8 @@ UI/
 5. 已完成：Windows 托盘常驻，支持关闭窗口后隐藏到托盘继续运行定时任务，并可从托盘恢复或退出。
 6. 已完成：当前用户级开机启动，设置页可写入或移除注册表 Run 项。
 7. 已完成：开机自启动场景使用启动参数静默驻留托盘，手动启动仍正常显示主窗口。
-8. 待增强：双向冲突策略可扩展（例如保留双版本、副本命名策略、交互式冲突处理）。
+8. 已完成：新增单向一次性同步模式，使用 SQLite 投递状态记录“已成功同步过”的文件，目标端后续删除不再补发，并支持任务级状态重置。
+9. 待增强：双向冲突策略可扩展（例如保留双版本、副本命名策略、交互式冲突处理）。
 
 ---
 

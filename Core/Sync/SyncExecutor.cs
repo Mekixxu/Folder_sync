@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO.Hashing;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,7 +22,8 @@ namespace FolderSync.Core.Sync
         private readonly FilterEngine _filterEngine;
         private readonly SyncMode _syncMode;
         private readonly TwoWayStateStore _twoWayStateStore;
-        private readonly string _twoWayTaskId;
+        private readonly OneWayDeliveryStateStore _oneWayDeliveryStateStore;
+        private readonly string _taskId;
 
         public event EventHandler<SyncProgressEventArgs>? ProgressChanged;
         public event EventHandler<SyncErrorEventArgs>? ErrorOccurred;
@@ -34,7 +34,7 @@ namespace FolderSync.Core.Sync
             IDiffStrategy diffStrategy,
             FilterEngine filterEngine,
             SyncMode syncMode,
-            string? twoWayTaskId = null)
+            string? taskId = null)
         {
             _sourceFs = sourceFs ?? throw new ArgumentNullException(nameof(sourceFs));
             _destFs = destFs ?? throw new ArgumentNullException(nameof(destFs));
@@ -42,7 +42,8 @@ namespace FolderSync.Core.Sync
             _filterEngine = filterEngine ?? throw new ArgumentNullException(nameof(filterEngine));
             _syncMode = syncMode;
             _twoWayStateStore = new TwoWayStateStore();
-            _twoWayTaskId = twoWayTaskId ?? $"tw::{_sourceFs.RootIdentifier}<->{_destFs.RootIdentifier}";
+            _oneWayDeliveryStateStore = new OneWayDeliveryStateStore();
+            _taskId = taskId ?? $"{_syncMode}::{_sourceFs.RootIdentifier}->{_destFs.RootIdentifier}";
         }
 
         public async Task<SyncReport> ExecuteAsync(CancellationToken cancellationToken = default)
@@ -87,12 +88,38 @@ namespace FolderSync.Core.Sync
         {
             var sourceItems = _filterEngine.Filter(await _sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
             var destItems = _filterEngine.Filter(await _destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null;
+
+            if (_syncMode == SyncMode.OneWaySendOnce)
+            {
+                await _oneWayDeliveryStateStore.InitializeAsync(cancellationToken);
+                deliveredRecords = await _oneWayDeliveryStateStore.LoadAsync(_taskId, cancellationToken);
+
+                foreach (var sourceItem in sourceItems)
+                {
+                    if (!deliveredRecords.TryGetValue(sourceItem.Path, out var deliveredRecord))
+                    {
+                        continue;
+                    }
+
+                    report.SkippedAlreadyDelivered++;
+                    if (await OneWayDeliverySupport.HasSourceChangedAsync(deliveredRecord, sourceItem, _sourceFs, cancellationToken))
+                    {
+                        report.WarningDetails.Add(new SyncWarningDetail
+                        {
+                            ItemPath = sourceItem.Path,
+                            Context = "Source changed after first successful delivery",
+                            Message = "该路径已完成一次性同步，检测到源文件内容变化，已按一次性规则跳过。"
+                        });
+                    }
+                }
+            }
 
             var isMirror = _syncMode == SyncMode.OneWayMirror;
             var actions = await _diffStrategy.CompareAsync(sourceItems, destItems, _sourceFs, _destFs, isMirror, cancellationToken);
-            var finalActions = ApplySyncModeFilter(actions);
+            var finalActions = ApplySyncModeFilter(actions, deliveredRecords);
             report.TotalActions = finalActions.Count;
-            await ExecuteActionsAsync(finalActions, report, cancellationToken);
+            await ExecuteActionsAsync(finalActions, report, cancellationToken, deliveredRecords);
         }
 
         private async Task ExecuteReliableTwoWayAsync(SyncReport report, CancellationToken cancellationToken)
@@ -106,7 +133,7 @@ namespace FolderSync.Core.Sync
 
             var sourceSnapshots = await BuildSnapshotsAsync(_sourceFs, sourceMap, cancellationToken);
             var destSnapshots = await BuildSnapshotsAsync(_destFs, destMap, cancellationToken);
-            var baseline = await _twoWayStateStore.LoadAsync(_twoWayTaskId, cancellationToken);
+            var baseline = await _twoWayStateStore.LoadAsync(_taskId, cancellationToken);
 
             var operations = BuildTwoWayOperations(sourceSnapshots, destSnapshots, baseline);
             report.TotalActions = operations.Count;
@@ -119,7 +146,7 @@ namespace FolderSync.Core.Sync
             var latestDestMap = latestDestItems.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
             var latestSourceSnapshots = await BuildSnapshotsAsync(_sourceFs, latestSourceMap, cancellationToken);
             var latestDestSnapshots = await BuildSnapshotsAsync(_destFs, latestDestMap, cancellationToken);
-            await _twoWayStateStore.SaveAsync(_twoWayTaskId, latestSourceSnapshots, latestDestSnapshots, cancellationToken);
+            await _twoWayStateStore.SaveAsync(_taskId, latestSourceSnapshots, latestDestSnapshots, cancellationToken);
         }
 
         private static bool SnapshotEquals(StateSnapshot? a, StateSnapshot? b)
@@ -256,23 +283,10 @@ namespace FolderSync.Core.Sync
                     IsDirectory = item.IsDirectory,
                     Size = item.Size,
                     LastWriteUtc = item.LastWriteTime,
-                    Hash = item.IsDirectory ? null : await ComputeXxHash64Async(fs, item.Path, cancellationToken)
+                    Hash = item.IsDirectory ? null : await OneWayDeliverySupport.ComputeXxHash64Async(fs, item.Path, cancellationToken)
                 };
             }
             return result;
-        }
-
-        private static async Task<string> ComputeXxHash64Async(IFileSystem fs, string path, CancellationToken cancellationToken)
-        {
-            using var stream = await fs.OpenReadAsync(path, cancellationToken);
-            var hasher = new XxHash64();
-            var buffer = new byte[81920];
-            int read;
-            while ((read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
-            {
-                hasher.Append(buffer.AsSpan(0, read));
-            }
-            return Convert.ToHexString(hasher.GetCurrentHash());
         }
 
         private async Task ExecuteTwoWayOperationsAsync(List<TwoWayOp> operations, SyncReport report, CancellationToken cancellationToken)
@@ -347,7 +361,9 @@ namespace FolderSync.Core.Sync
             };
         }
 
-        private List<SyncAction> ApplySyncModeFilter(IEnumerable<SyncAction> actions)
+        private List<SyncAction> ApplySyncModeFilter(
+            IEnumerable<SyncAction> actions,
+            IReadOnlyDictionary<string, OneWayDeliveryRecord>? deliveredRecords = null)
         {
             var result = new List<SyncAction>();
             foreach (var action in actions)
@@ -360,6 +376,14 @@ namespace FolderSync.Core.Sync
                     case SyncMode.OneWayUpdate:
                         if (action.ActionType == SyncActionType.Create || action.ActionType == SyncActionType.Update) result.Add(action);
                         break;
+                    case SyncMode.OneWaySendOnce:
+                        if ((action.ActionType == SyncActionType.Create || action.ActionType == SyncActionType.Update)
+                            && action.SourceItem != null
+                            && !(deliveredRecords?.ContainsKey(action.SourceItem.Path) ?? false))
+                        {
+                            result.Add(action);
+                        }
+                        break;
                     case SyncMode.OneWayMirror:
                     case SyncMode.TwoWay:
                         result.Add(action);
@@ -369,7 +393,11 @@ namespace FolderSync.Core.Sync
             return result;
         }
 
-        private async Task ExecuteActionsAsync(List<SyncAction> actions, SyncReport report, CancellationToken cancellationToken)
+        private async Task ExecuteActionsAsync(
+            List<SyncAction> actions,
+            SyncReport report,
+            CancellationToken cancellationToken,
+            Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null)
         {
             int completed = 0;
             foreach (var action in actions)
@@ -387,10 +415,35 @@ namespace FolderSync.Core.Sync
                                 if (action.SourceItem.IsDirectory)
                                 {
                                     await _destFs.CreateDirectoryAsync(action.SourceItem.Path, cancellationToken);
+                                    if (_syncMode == SyncMode.OneWaySendOnce)
+                                    {
+                                        var directoryRecord = OneWayDeliverySupport.CreateDeliveredRecordFromCopy(
+                                            action.SourceItem.Path,
+                                            action.SourceItem,
+                                            sourceHash: null);
+                                        await _oneWayDeliveryStateStore.UpsertAsync(_taskId, directoryRecord, cancellationToken);
+                                        if (deliveredRecords != null)
+                                        {
+                                            deliveredRecords[action.SourceItem.Path] = directoryRecord;
+                                        }
+                                    }
                                 }
                                 else
                                 {
-                                    await CopyFileAsync(_sourceFs, _destFs, action.SourceItem.Path, cancellationToken);
+                                    if (_syncMode == SyncMode.OneWaySendOnce)
+                                    {
+                                        var copiedHash = await OneWayDeliverySupport.CopyFileAndComputeHashAsync(_sourceFs, _destFs, action.SourceItem.Path, cancellationToken);
+                                        var record = OneWayDeliverySupport.CreateDeliveredRecordFromCopy(action.SourceItem.Path, action.SourceItem, copiedHash);
+                                        await _oneWayDeliveryStateStore.UpsertAsync(_taskId, record, cancellationToken);
+                                        if (deliveredRecords != null)
+                                        {
+                                            deliveredRecords[action.SourceItem.Path] = record;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        await CopyFileAsync(_sourceFs, _destFs, action.SourceItem.Path, cancellationToken);
+                                    }
                                     if (action.ActionType == SyncActionType.Create) report.CreatedFiles++;
                                     else report.UpdatedFiles++;
                                 }
