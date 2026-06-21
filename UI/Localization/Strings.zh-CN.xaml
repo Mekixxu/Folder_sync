@@ -8,6 +8,7 @@
     <sys:String x:Key="Settings.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">系统设置</sys:String>
     <sys:String x:Key="Settings.StartWithWindows" xmlns:sys="clr-namespace:System;assembly=mscorlib">开机自动启动</sys:String>
     <sys:String x:Key="Settings.MinimizeToTray" xmlns:sys="clr-namespace:System;assembly=mscorlib">关闭窗口时隐藏到托盘</sys:String>
+    <sys:String x:Key="Settings.StartupHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">启用后，系统登录时程序会静默启动并驻留托盘。</sys:String>
     <sys:String x:Key="Settings.LogRetentionDays" xmlns:sys="clr-namespace:System;assembly=mscorlib">日志保留天数</sys:String>
     <sys:String x:Key="Settings.Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">界面语言</sys:String>
     <sys:String x:Key="Settings.FontFamily" xmlns:sys="clr-namespace:System;assembly=mscorlib">界面字体</sys:String>

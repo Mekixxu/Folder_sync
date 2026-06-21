@@ -18,6 +18,10 @@
         <materialDesign:Card Grid.Row="1" Padding="20" UniformCornerRadius="8">
             <StackPanel>
                 <CheckBox Content="{DynamicResource Settings.StartWithWindows}" IsChecked="{Binding StartWithWindows}" Margin="0,0,0,12" />
+                <TextBlock Text="{DynamicResource Settings.StartupHint}"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           TextWrapping="Wrap"
+                           Margin="0,-4,0,12" />
                 <CheckBox Content="{DynamicResource Settings.MinimizeToTray}" IsChecked="{Binding MinimizeToTray}" Margin="0,0,0,20" />
 
                 <TextBlock Text="{DynamicResource Settings.LogRetentionDays}" FontWeight="SemiBold" Margin="0,0,0,8" />

@@ -31,6 +31,8 @@ namespace FolderSync
 
             try
             {
+                var startInTray = ShouldStartInTray(e.Args);
+
                 // 2. 加载显示与语言设置
                 ApplyDisplaySettings();
 
@@ -40,7 +42,14 @@ namespace FolderSync
                 // 4. 初始化托盘常驻与主窗口
                 InitializeTrayIcon();
                 MainWindow = new MainWindow();
-                MainWindow.Show();
+                if (startInTray)
+                {
+                    HideMainWindowToTray(MainWindow);
+                }
+                else
+                {
+                    MainWindow.Show();
+                }
             }
             catch (Exception ex)
             {
@@ -125,6 +134,19 @@ namespace FolderSync
         {
             _trayIconService = new TrayIconService(ShowMainWindowFromTray, ExitApplicationFromTray);
             _trayIconService.Hide();
+        }
+
+        private static bool ShouldStartInTray(string[] args)
+        {
+            foreach (var arg in args)
+            {
+                if (string.Equals(arg, StartupRegistrationService.TrayStartupArgument, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public bool ShouldMinimizeToTray()

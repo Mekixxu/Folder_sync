@@ -11,6 +11,7 @@ namespace FolderSync.UI.Services
     {
         private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string RunValueName = "FolderSyncPro";
+        public const string TrayStartupArgument = "--tray-start";
 
         public bool IsEnabled()
         {
@@ -41,7 +42,7 @@ namespace FolderSync.UI.Services
                 throw new InvalidOperationException("无法确定当前程序路径，无法设置开机启动。");
             }
 
-            runKey.SetValue(RunValueName, $"\"{executablePath}\"", RegistryValueKind.String);
+            runKey.SetValue(RunValueName, $"\"{executablePath}\" {TrayStartupArgument}", RegistryValueKind.String);
         }
     }
 }
