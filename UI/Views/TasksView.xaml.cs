@@ -5,7 +5,7 @@ namespace FolderSync.UI.Views
     /// <summary>
     /// Interaction logic for TasksView.xaml
     /// </summary>
-    public partial class TasksView : UserControl
+    public partial class TasksView : System.Windows.Controls.UserControl
     {
         public TasksView()
         {

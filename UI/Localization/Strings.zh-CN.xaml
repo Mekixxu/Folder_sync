@@ -7,7 +7,7 @@
 
     <sys:String x:Key="Settings.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">系统设置</sys:String>
     <sys:String x:Key="Settings.StartWithWindows" xmlns:sys="clr-namespace:System;assembly=mscorlib">开机自动启动</sys:String>
-    <sys:String x:Key="Settings.MinimizeToTray" xmlns:sys="clr-namespace:System;assembly=mscorlib">关闭窗口时最小化到托盘</sys:String>
+    <sys:String x:Key="Settings.MinimizeToTray" xmlns:sys="clr-namespace:System;assembly=mscorlib">关闭或最小化窗口时隐藏到托盘</sys:String>
     <sys:String x:Key="Settings.LogRetentionDays" xmlns:sys="clr-namespace:System;assembly=mscorlib">日志保留天数</sys:String>
     <sys:String x:Key="Settings.Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">界面语言</sys:String>
     <sys:String x:Key="Settings.FontFamily" xmlns:sys="clr-namespace:System;assembly=mscorlib">界面字体</sys:String>
@@ -16,6 +16,9 @@
     <sys:String x:Key="Settings.HintDays" xmlns:sys="clr-namespace:System;assembly=mscorlib">例如 30</sys:String>
     <sys:String x:Key="Settings.Saved" xmlns:sys="clr-namespace:System;assembly=mscorlib">设置已保存。</sys:String>
     <sys:String x:Key="Settings.Tip" xmlns:sys="clr-namespace:System;assembly=mscorlib">提示</sys:String>
+    <sys:String x:Key="Tray.Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">FolderSync Pro 正在后台运行</sys:String>
+    <sys:String x:Key="Tray.ShowWindow" xmlns:sys="clr-namespace:System;assembly=mscorlib">显示主窗口</sys:String>
+    <sys:String x:Key="Tray.Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">退出程序</sys:String>
 
     <sys:String x:Key="Tasks.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">任务管理</sys:String>
     <sys:String x:Key="Tasks.NewTask" xmlns:sys="clr-namespace:System;assembly=mscorlib">+ 新建同步任务</sys:String>

@@ -101,12 +101,16 @@ namespace FolderSync.UI.ViewModels
             });
 
             LocalizationService.ApplyLanguage(SelectedLanguage);
-            Application.Current.Resources["AppZoomScale"] = UiScale < 0.8 ? 0.8 : (UiScale > 2.0 ? 2.0 : UiScale);
-            Application.Current.Resources["AppFontFamily"] = new FontFamily(SelectedFontFamily);
+            System.Windows.Application.Current.Resources["AppZoomScale"] = UiScale < 0.8 ? 0.8 : (UiScale > 2.0 ? 2.0 : UiScale);
+            System.Windows.Application.Current.Resources["AppFontFamily"] = new FontFamily(SelectedFontFamily);
+            if (System.Windows.Application.Current is App app)
+            {
+                app.RefreshTrayIconText();
+            }
 
             MessageBox.Show(
-                Application.Current.TryFindResource("Settings.Saved")?.ToString() ?? "设置已保存。",
-                Application.Current.TryFindResource("Settings.Tip")?.ToString() ?? "提示",
+                System.Windows.Application.Current.TryFindResource("Settings.Saved")?.ToString() ?? "设置已保存。",
+                System.Windows.Application.Current.TryFindResource("Settings.Tip")?.ToString() ?? "提示",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }

@@ -1,13 +1,5 @@
-﻿using System.Text;
+using System;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace FolderSync;
 
@@ -19,5 +11,23 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Closing += MainWindow_Closing;
+        StateChanged += MainWindow_StateChanged;
+    }
+
+    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (System.Windows.Application.Current is App app && app.HandleMainWindowClosing(this))
+        {
+            e.Cancel = true;
+        }
+    }
+
+    private void MainWindow_StateChanged(object? sender, EventArgs e)
+    {
+        if (System.Windows.Application.Current is App app)
+        {
+            app.HandleMainWindowStateChanged(this);
+        }
     }
 }

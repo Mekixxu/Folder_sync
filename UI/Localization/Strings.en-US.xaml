@@ -7,7 +7,7 @@
 
     <sys:String x:Key="Settings.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Settings</sys:String>
     <sys:String x:Key="Settings.StartWithWindows" xmlns:sys="clr-namespace:System;assembly=mscorlib">Start With Windows</sys:String>
-    <sys:String x:Key="Settings.MinimizeToTray" xmlns:sys="clr-namespace:System;assembly=mscorlib">Minimize To Tray When Closing</sys:String>
+    <sys:String x:Key="Settings.MinimizeToTray" xmlns:sys="clr-namespace:System;assembly=mscorlib">Hide To Tray When Closing Or Minimizing</sys:String>
     <sys:String x:Key="Settings.LogRetentionDays" xmlns:sys="clr-namespace:System;assembly=mscorlib">Log Retention Days</sys:String>
     <sys:String x:Key="Settings.Language" xmlns:sys="clr-namespace:System;assembly=mscorlib">Language</sys:String>
     <sys:String x:Key="Settings.FontFamily" xmlns:sys="clr-namespace:System;assembly=mscorlib">Font Family</sys:String>
@@ -16,6 +16,9 @@
     <sys:String x:Key="Settings.HintDays" xmlns:sys="clr-namespace:System;assembly=mscorlib">e.g. 30</sys:String>
     <sys:String x:Key="Settings.Saved" xmlns:sys="clr-namespace:System;assembly=mscorlib">Settings saved.</sys:String>
     <sys:String x:Key="Settings.Tip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Info</sys:String>
+    <sys:String x:Key="Tray.Tooltip" xmlns:sys="clr-namespace:System;assembly=mscorlib">FolderSync Pro is running in background</sys:String>
+    <sys:String x:Key="Tray.ShowWindow" xmlns:sys="clr-namespace:System;assembly=mscorlib">Show Main Window</sys:String>
+    <sys:String x:Key="Tray.Exit" xmlns:sys="clr-namespace:System;assembly=mscorlib">Exit</sys:String>
 
     <sys:String x:Key="Tasks.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Task Management</sys:String>
     <sys:String x:Key="Tasks.NewTask" xmlns:sys="clr-namespace:System;assembly=mscorlib">+ New Sync Task</sys:String>

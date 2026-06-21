@@ -1,4 +1,4 @@
-﻿# Folder Sync 程序架构与技术栈分析
+﻿﻿﻿﻿﻿﻿﻿﻿﻿# Folder Sync 程序架构与技术栈分析
 
 ## 1. 需求分析总结
 
@@ -20,6 +20,7 @@
   - 任务报告：每次任务执行独立落盘，且文件名避免并发重名
 - **UI**：WPF + MaterialDesign，MVVM 架构（已完成主框架与 Dashboard/Tasks/Logs/TaskEditor 的现代化布局重构）。
 - **国际化与显示**：支持中文/英文切换，支持字体与界面缩放配置并持久化。
+- **桌面集成**：支持 Windows 托盘常驻，关闭或最小化窗口时可隐藏到托盘后台运行。
 
 ---
 
@@ -31,6 +32,7 @@
 - **调度**：Quartz.NET
 - **日志**：Serilog
 - **哈希**：System.IO.Hashing（xxHash64）
+- **桌面壳集成**：System.Windows.Forms（NotifyIcon 托盘图标）
 
 ---
 
@@ -52,6 +54,7 @@ Folder_sync/
 ├─ .gitignore
 ├─ Core/
 ├─ UI/
+│  └─ Services/
 ├─ .trae/specs/
 └─ publish/
 ```
@@ -59,11 +62,20 @@ Folder_sync/
 ### 3.2 模块到目录映射
 
 - **UI 层（MVVM）**
-  - 职责：导航、页面交互、任务编辑、日志展示、设置。
-  - 目录：`UI/Views`, `UI/ViewModels`, `UI/Converters`, `UI/Localization`
+  - 职责：导航、页面交互、任务编辑、日志展示、设置、托盘文案与显示行为联动。
+  - 目录：`UI/Views`, `UI/ViewModels`, `UI/Converters`, `UI/Localization`, `UI/Services`
   - 关键文件：
     - `MainWindow.xaml` / `MainViewModel.cs`
     - `DashboardView*`, `TasksView*`, `TaskEditorView*`, `LogsView*`, `SettingsView*`
+    - `TrayIconService.cs`
+
+- **应用壳层 / 生命周期**
+  - 职责：应用启动与退出、日志初始化、调度器生命周期、主窗口与托盘常驻行为。
+  - 目录：项目根目录 + `UI/Services`
+  - 关键文件：
+    - `App.xaml` / `App.xaml.cs`
+    - `MainWindow.xaml` / `MainWindow.xaml.cs`
+    - `UI/Services/TrayIconService.cs`
 
 - **VFS 抽象层**
   - 职责：统一 Local/SMB/FTP 的读写接口。
@@ -155,6 +167,8 @@ UI/
 │  ├─ LocalizationService.cs
 │  ├─ Strings.zh-CN.xaml
 │  └─ Strings.en-US.xaml
+├─ Services/
+│  └─ TrayIconService.cs
 ├─ ViewModels/
 │  ├─ ViewModelBase.cs
 │  ├─ RelayCommand.cs
@@ -180,7 +194,8 @@ UI/
 2. 已完成：主框架与 Dashboard/Tasks/Logs/TaskEditor 视觉现代化（统一样式令牌、批量操作区层级优化、分析窗口可读性提升）。
 3. 已完成：过滤规则升级为白/黑名单并行，时间粒度 hour，保存冲突提示。
 4. 已完成：双向同步接入 SQLite 基线，支持可靠变更判定与默认冲突策略（保数据优先+时间优先）。
-5. 待增强：双向冲突策略可扩展（例如保留双版本、副本命名策略、交互式冲突处理）。
+5. 已完成：Windows 托盘常驻，支持关闭或最小化窗口后隐藏到托盘继续运行定时任务，并可从托盘恢复或退出。
+6. 待增强：双向冲突策略可扩展（例如保留双版本、副本命名策略、交互式冲突处理）。
 
 ---
 

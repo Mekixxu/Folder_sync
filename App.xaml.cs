@@ -5,6 +5,7 @@ using System.Windows.Media;
 using FolderSync.Core.Config;
 using FolderSync.Core.Scheduler;
 using FolderSync.UI.Localization;
+using FolderSync.UI.Services;
 using Serilog;
 
 namespace FolderSync
@@ -12,8 +13,11 @@ namespace FolderSync
     /// <summary>
     /// Interaction logic for App.xaml
     /// </summary>
-    public partial class App : Application
+    public partial class App : System.Windows.Application
     {
+        private TrayIconService? _trayIconService;
+        private bool _isExitRequested;
+
         protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
@@ -32,11 +36,17 @@ namespace FolderSync
 
                 // 3. 启动 Quartz 定时任务调度引擎
                 await SchedulerManager.Instance.StartAsync();
+
+                // 4. 初始化托盘常驻与主窗口
+                InitializeTrayIcon();
+                MainWindow = new MainWindow();
+                MainWindow.Show();
             }
             catch (Exception ex)
             {
                 Log.Fatal(ex, "Failed to start Quartz Scheduler.");
                 MessageBox.Show($"Failed to initialize task scheduler: {ex.Message}", "Critical Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown(-1);
             }
         }
 
@@ -53,6 +63,8 @@ namespace FolderSync
             {
                 Log.Error(ex, "Error occurred while stopping the scheduler.");
             }
+
+            _trayIconService?.Dispose();
 
             // 刷新并关闭日志流
             Log.CloseAndFlush();
@@ -107,6 +119,75 @@ namespace FolderSync
             {
                 Resources["AppFontFamily"] = new FontFamily("Microsoft YaHei UI");
             }
+        }
+
+        private void InitializeTrayIcon()
+        {
+            _trayIconService = new TrayIconService(ShowMainWindowFromTray, ExitApplicationFromTray);
+            _trayIconService.Hide();
+        }
+
+        public bool ShouldMinimizeToTray()
+        {
+            return new SettingsRepository().Load().MinimizeToTray;
+        }
+
+        public void HandleMainWindowStateChanged(Window window)
+        {
+            if (!_isExitRequested && window.WindowState == WindowState.Minimized && ShouldMinimizeToTray())
+            {
+                HideMainWindowToTray(window);
+            }
+        }
+
+        public bool HandleMainWindowClosing(Window window)
+        {
+            if (_isExitRequested || !ShouldMinimizeToTray())
+            {
+                return false;
+            }
+
+            HideMainWindowToTray(window);
+            return true;
+        }
+
+        public void RefreshTrayIconText()
+        {
+            _trayIconService?.RefreshText();
+        }
+
+        private void HideMainWindowToTray(Window window)
+        {
+            _trayIconService?.RefreshText();
+            _trayIconService?.Show();
+            window.Hide();
+        }
+
+        private void ShowMainWindowFromTray()
+        {
+            var window = MainWindow;
+            if (window == null)
+            {
+                return;
+            }
+
+            if (!window.IsVisible)
+            {
+                window.Show();
+            }
+
+            window.WindowState = WindowState.Normal;
+            window.ShowInTaskbar = true;
+            window.Activate();
+            _trayIconService?.Hide();
+        }
+
+        private void ExitApplicationFromTray()
+        {
+            _isExitRequested = true;
+            _trayIconService?.Hide();
+            MainWindow?.Close();
+            Shutdown();
         }
     }
 }

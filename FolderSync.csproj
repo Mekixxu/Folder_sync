@@ -8,15 +8,16 @@
     <UseWPF>true</UseWPF>
     
     <!-- 应用版本信息 -->
-    <Version>0.0.19</Version>
-    <AssemblyVersion>0.0.19.0</AssemblyVersion>
-    <FileVersion>0.0.19.0</FileVersion>
+    <Version>0.0.20</Version>
+    <AssemblyVersion>0.0.20.0</AssemblyVersion>
+    <FileVersion>0.0.20.0</FileVersion>
     <Title>FolderSync Pro</Title>
     <Product>FolderSync Pro</Product>
     <Description>Advanced Folder Synchronization Tool</Description>
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
     <PackageReference Include="FluentFTP" Version="54.1.1" />
     <PackageReference Include="MaterialDesignThemes" Version="5.3.1" />
     <PackageReference Include="Quartz" Version="3.18.0" />

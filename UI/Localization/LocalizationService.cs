@@ -11,7 +11,7 @@ namespace FolderSync.UI.Localization
 
         public static void ApplyLanguage(string languageCode)
         {
-            var app = Application.Current;
+            var app = System.Windows.Application.Current;
             if (app == null)
             {
                 return;

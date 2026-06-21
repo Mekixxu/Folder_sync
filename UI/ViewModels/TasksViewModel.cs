@@ -116,7 +116,7 @@ namespace FolderSync.UI.ViewModels
             var window = new TaskAnalysisWindow
             {
                 DataContext = vm,
-                Owner = Application.Current?.MainWindow
+                Owner = System.Windows.Application.Current?.MainWindow
             };
             window.ShowDialog();
         }
@@ -378,9 +378,9 @@ namespace FolderSync.UI.ViewModels
         }
 
         public string AnalysisStatusIcon => IsAnalysisCompleted ? "CheckCircle" : "HelpCircleOutline";
-        private static readonly Brush _analysisReadyBrush = new SolidColorBrush(Colors.ForestGreen);
-        private static readonly Brush _analysisPendingBrush = new SolidColorBrush(Colors.Gray);
-        public Brush AnalysisStatusColor
+        private static readonly System.Windows.Media.Brush _analysisReadyBrush = new SolidColorBrush(Colors.ForestGreen);
+        private static readonly System.Windows.Media.Brush _analysisPendingBrush = new SolidColorBrush(Colors.Gray);
+        public System.Windows.Media.Brush AnalysisStatusColor
         {
             get => IsAnalysisCompleted ? _analysisReadyBrush : _analysisPendingBrush;
         }
