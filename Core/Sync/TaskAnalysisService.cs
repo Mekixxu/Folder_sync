@@ -21,8 +21,8 @@ namespace FolderSync.Core.Sync
 
         public async Task<List<TaskAnalysisItem>> AnalyzeAsync(SyncTaskDefinition task, CancellationToken cancellationToken = default)
         {
-            var sourceFs = SyncTaskFactory.CreateFileSystem(task.SourceProtocol, task.SourcePath);
-            var destFs = SyncTaskFactory.CreateFileSystem(task.DestProtocol, task.DestPath);
+            var sourceFs = SyncTaskFactory.CreateSourceFileSystem(task);
+            var destFs = SyncTaskFactory.CreateDestFileSystem(task);
             var diff = SyncTaskFactory.CreateDiffStrategy(task.DiffStrategy);
             var filterEngine = SyncTaskFactory.CreateFilterEngine(task.FilterConfiguration ?? new DualListFilterConfiguration());
             Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null;
@@ -154,8 +154,8 @@ namespace FolderSync.Core.Sync
             IEnumerable<TaskAnalysisItem> selectedItems,
             CancellationToken cancellationToken = default)
         {
-            var sourceFs = SyncTaskFactory.CreateFileSystem(task.SourceProtocol, task.SourcePath);
-            var destFs = SyncTaskFactory.CreateFileSystem(task.DestProtocol, task.DestPath);
+            var sourceFs = SyncTaskFactory.CreateSourceFileSystem(task);
+            var destFs = SyncTaskFactory.CreateDestFileSystem(task);
             await sourceFs.ConnectAsync(cancellationToken);
             await destFs.ConnectAsync(cancellationToken);
             var isSendOnce = task.SyncMode == SyncMode.OneWaySendOnce;

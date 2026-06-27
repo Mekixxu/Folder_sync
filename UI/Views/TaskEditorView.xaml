@@ -46,6 +46,28 @@
                                     <TextBlock Text="源目录 (A)" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
                                     <ComboBox materialDesign:HintAssist.Hint="协议" ItemsSource="{Binding Protocols}" SelectedItem="{Binding SourceProtocol}" Margin="0,0,0,15"/>
                                     <TextBox materialDesign:HintAssist.Hint="路径 (C:\Data 或 \\192.168.1.10\Share)" Text="{Binding SourcePath}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0,0,0,10"/>
+                                    <StackPanel Visibility="{Binding IsSourceFtp, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,10">
+                                        <ComboBox materialDesign:HintAssist.Hint="FTP 认证方式"
+                                                  ItemsSource="{Binding FtpAuthenticationModes}"
+                                                  SelectedItem="{Binding SelectedSourceFtpAuthenticationMode}"
+                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                                  Margin="0,0,0,10"/>
+                                        <StackPanel Visibility="{Binding IsSourceFtpUserPassword, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBox materialDesign:HintAssist.Hint="FTP 用户名"
+                                                     Text="{Binding SourceFtpUsername, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                                     Margin="0,0,0,10"/>
+                                            <PasswordBox x:Name="SourceFtpPasswordBox"
+                                                         materialDesign:HintAssist.Hint="FTP 密码（将加密保存）"
+                                                         materialDesign:HintAssist.IsFloating="True"
+                                                         PasswordChanged="SourceFtpPasswordBox_OnPasswordChanged"
+                                                         Margin="0,0,0,8"/>
+                                            <TextBlock Text="密码将使用 Windows 当前用户的 DPAPI 加密保存，不会以明文写入任务配置。"
+                                                       Foreground="{StaticResource SecondaryTextBrush}"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </StackPanel>
                                     <Button Content="浏览文件夹" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding BrowseSourceCommand}" HorizontalAlignment="Right" Margin="0"/>
                                 </StackPanel>
                             </materialDesign:Card>
@@ -58,6 +80,28 @@
                                     <TextBlock Text="目标目录 (B)" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
                                     <ComboBox materialDesign:HintAssist.Hint="协议" ItemsSource="{Binding Protocols}" SelectedItem="{Binding DestProtocol}" Margin="0,0,0,15"/>
                                     <TextBox materialDesign:HintAssist.Hint="路径 (D:\Backup 或 /ftp/data/)" Text="{Binding DestPath}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0,0,0,10"/>
+                                    <StackPanel Visibility="{Binding IsDestFtp, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,10">
+                                        <ComboBox materialDesign:HintAssist.Hint="FTP 认证方式"
+                                                  ItemsSource="{Binding FtpAuthenticationModes}"
+                                                  SelectedItem="{Binding SelectedDestFtpAuthenticationMode}"
+                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                                  Margin="0,0,0,10"/>
+                                        <StackPanel Visibility="{Binding IsDestFtpUserPassword, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBox materialDesign:HintAssist.Hint="FTP 用户名"
+                                                     Text="{Binding DestFtpUsername, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                                     Margin="0,0,0,10"/>
+                                            <PasswordBox x:Name="DestFtpPasswordBox"
+                                                         materialDesign:HintAssist.Hint="FTP 密码（将加密保存）"
+                                                         materialDesign:HintAssist.IsFloating="True"
+                                                         PasswordChanged="DestFtpPasswordBox_OnPasswordChanged"
+                                                         Margin="0,0,0,8"/>
+                                            <TextBlock Text="密码将使用 Windows 当前用户的 DPAPI 加密保存，不会以明文写入任务配置。"
+                                                       Foreground="{StaticResource SecondaryTextBrush}"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </StackPanel>
                                     <Button Content="浏览文件夹" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding BrowseDestCommand}" HorizontalAlignment="Right" Margin="0"/>
                                 </StackPanel>
                             </materialDesign:Card>

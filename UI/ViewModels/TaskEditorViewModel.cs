@@ -34,14 +34,28 @@ namespace FolderSync.UI.ViewModels
         public string SourceProtocol
         {
             get => _sourceProtocol;
-            set => SetProperty(ref _sourceProtocol, value);
+            set
+            {
+                if (SetProperty(ref _sourceProtocol, value))
+                {
+                    OnPropertyChanged(nameof(IsSourceFtp));
+                    OnPropertyChanged(nameof(IsSourceFtpUserPassword));
+                }
+            }
         }
 
         private string _destProtocol = "Local/SMB";
         public string DestProtocol
         {
             get => _destProtocol;
-            set => SetProperty(ref _destProtocol, value);
+            set
+            {
+                if (SetProperty(ref _destProtocol, value))
+                {
+                    OnPropertyChanged(nameof(IsDestFtp));
+                    OnPropertyChanged(nameof(IsDestFtpUserPassword));
+                }
+            }
         }
 
         private string _sourcePath = string.Empty;
@@ -57,6 +71,67 @@ namespace FolderSync.UI.ViewModels
             get => _destPath;
             set => SetProperty(ref _destPath, value);
         }
+
+        public ObservableCollection<string> FtpAuthenticationModes { get; } = new(new[] { "匿名登录", "账号密码登录" });
+
+        private string _selectedSourceFtpAuthenticationMode = "匿名登录";
+        public string SelectedSourceFtpAuthenticationMode
+        {
+            get => _selectedSourceFtpAuthenticationMode;
+            set
+            {
+                if (SetProperty(ref _selectedSourceFtpAuthenticationMode, value))
+                {
+                    OnPropertyChanged(nameof(IsSourceFtpUserPassword));
+                }
+            }
+        }
+
+        private string _selectedDestFtpAuthenticationMode = "匿名登录";
+        public string SelectedDestFtpAuthenticationMode
+        {
+            get => _selectedDestFtpAuthenticationMode;
+            set
+            {
+                if (SetProperty(ref _selectedDestFtpAuthenticationMode, value))
+                {
+                    OnPropertyChanged(nameof(IsDestFtpUserPassword));
+                }
+            }
+        }
+
+        private string _sourceFtpUsername = string.Empty;
+        public string SourceFtpUsername
+        {
+            get => _sourceFtpUsername;
+            set => SetProperty(ref _sourceFtpUsername, value);
+        }
+
+        private string _destFtpUsername = string.Empty;
+        public string DestFtpUsername
+        {
+            get => _destFtpUsername;
+            set => SetProperty(ref _destFtpUsername, value);
+        }
+
+        private string _sourceFtpPassword = string.Empty;
+        public string SourceFtpPassword
+        {
+            get => _sourceFtpPassword;
+            set => SetProperty(ref _sourceFtpPassword, value);
+        }
+
+        private string _destFtpPassword = string.Empty;
+        public string DestFtpPassword
+        {
+            get => _destFtpPassword;
+            set => SetProperty(ref _destFtpPassword, value);
+        }
+
+        public bool IsSourceFtp => string.Equals(SourceProtocol, "FTP", StringComparison.OrdinalIgnoreCase);
+        public bool IsDestFtp => string.Equals(DestProtocol, "FTP", StringComparison.OrdinalIgnoreCase);
+        public bool IsSourceFtpUserPassword => IsSourceFtp && string.Equals(SelectedSourceFtpAuthenticationMode, "账号密码登录", StringComparison.Ordinal);
+        public bool IsDestFtpUserPassword => IsDestFtp && string.Equals(SelectedDestFtpAuthenticationMode, "账号密码登录", StringComparison.Ordinal);
 
         // 同步模式与策略
         public ObservableCollection<string> SyncModes { get; } = new(new[] { "单向增量 (仅新增)", "单向更新 (新增与修改)", "单向一次性同步 (仅首次成功后不再补发)", "单向镜像 (让B等于A)", "双向同步 (实验性)" });
@@ -172,6 +247,11 @@ namespace FolderSync.UI.ViewModels
 
         private void SaveTask(object? parameter)
         {
+            if (!ValidateFtpConfiguration())
+            {
+                return;
+            }
+
             var configuration = BuildFilterConfiguration();
             var conflicts = FilterConflictDetector.Detect(configuration);
             if (conflicts.Count > 0)
@@ -270,7 +350,7 @@ namespace FolderSync.UI.ViewModels
             if (string.Equals(protocol, "FTP", StringComparison.OrdinalIgnoreCase))
             {
                 MessageBox.Show(
-                    "FTP 路径请手动输入（例如 ftp://host/path）。",
+                    "FTP 路径请手动输入（例如 ftp://host/path）。账号密码请在下方 FTP 认证配置中填写，不要写入 URL。",
                     "协议提示",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
@@ -321,6 +401,12 @@ namespace FolderSync.UI.ViewModels
                 DestProtocol = DestProtocol,
                 SourcePath = SourcePath.Trim(),
                 DestPath = DestPath.Trim(),
+                SourceFtpUseAuthentication = IsSourceFtp && IsSourceFtpUserPassword,
+                SourceFtpUsername = IsSourceFtp && IsSourceFtpUserPassword ? SourceFtpUsername.Trim() : string.Empty,
+                SourceFtpEncryptedPassword = IsSourceFtp && IsSourceFtpUserPassword ? FtpCredentialProtector.Protect(SourceFtpPassword) : string.Empty,
+                DestFtpUseAuthentication = IsDestFtp && IsDestFtpUserPassword,
+                DestFtpUsername = IsDestFtp && IsDestFtpUserPassword ? DestFtpUsername.Trim() : string.Empty,
+                DestFtpEncryptedPassword = IsDestFtp && IsDestFtpUserPassword ? FtpCredentialProtector.Protect(DestFtpPassword) : string.Empty,
                 SyncMode = MapSyncMode(SelectedSyncMode),
                 DiffStrategy = MapDiffStrategy(SelectedDiffStrategy),
                 IsManualTrigger = IsManualTrigger,
@@ -340,6 +426,12 @@ namespace FolderSync.UI.ViewModels
             DestProtocol = task.DestProtocol;
             SourcePath = task.SourcePath;
             DestPath = task.DestPath;
+            SelectedSourceFtpAuthenticationMode = task.SourceFtpUseAuthentication ? "账号密码登录" : "匿名登录";
+            SelectedDestFtpAuthenticationMode = task.DestFtpUseAuthentication ? "账号密码登录" : "匿名登录";
+            SourceFtpUsername = task.SourceFtpUsername ?? string.Empty;
+            DestFtpUsername = task.DestFtpUsername ?? string.Empty;
+            SourceFtpPassword = TryLoadPassword(task.SourceFtpUseAuthentication, task.SourceFtpEncryptedPassword, "源目录");
+            DestFtpPassword = TryLoadPassword(task.DestFtpUseAuthentication, task.DestFtpEncryptedPassword, "目标目录");
             SelectedSyncMode = task.SyncMode switch
             {
                 SyncMode.OneWayIncremental => "单向增量 (仅新增)",
@@ -362,6 +454,65 @@ namespace FolderSync.UI.ViewModels
             var config = task.FilterConfiguration ?? new DualListFilterConfiguration();
             ApplyRuleSetToUi(config.Whitelist, true);
             ApplyRuleSetToUi(config.Blacklist, false);
+        }
+
+        private bool ValidateFtpConfiguration()
+        {
+            if (IsSourceFtp && !ValidateSingleFtpEndpoint("源目录", SourcePath, IsSourceFtpUserPassword, SourceFtpUsername, SourceFtpPassword))
+            {
+                return false;
+            }
+
+            if (IsDestFtp && !ValidateSingleFtpEndpoint("目标目录", DestPath, IsDestFtpUserPassword, DestFtpUsername, DestFtpPassword))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static string TryLoadPassword(bool useAuthentication, string encryptedPassword, string displayName)
+        {
+            if (!useAuthentication)
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                return FtpCredentialProtector.Unprotect(encryptedPassword);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"{displayName}的 FTP 密码无法解密：{ex.Message}", "FTP 密码读取失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return string.Empty;
+            }
+        }
+
+        private static bool ValidateSingleFtpEndpoint(string displayName, string path, bool useAuthentication, string username, string password)
+        {
+            if (!Uri.TryCreate(path.Trim(), UriKind.Absolute, out var uri) || !string.Equals(uri.Scheme, "ftp", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show($"{displayName}的 FTP 路径无效，请使用 ftp://host[:port]/basePath 格式。", "FTP 配置无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(uri.UserInfo))
+            {
+                MessageBox.Show($"{displayName}的 FTP 路径中包含用户名或密码。请在认证字段中填写账号密码，不要在 URL 中内嵌凭据。", "FTP 配置无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            if (useAuthentication)
+            {
+                if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
+                {
+                    MessageBox.Show($"{displayName}已选择账号密码登录，请完整填写用户名和密码。", "FTP 配置不完整", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static SyncMode MapSyncMode(string selected)

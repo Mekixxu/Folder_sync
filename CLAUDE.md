@@ -1,10 +1,10 @@
-﻿﻿﻿﻿﻿﻿# Folder Sync 程序架构与技术栈分析
+﻿﻿﻿﻿﻿﻿﻿﻿﻿# Folder Sync 程序架构与技术栈分析
 
 ## 1. 需求分析总结
 
 根据当前项目目标，程序运行在 Windows 平台，核心能力包含：
 
-- **存储协议支持**：本地路径 (Local)、FTP、SMB (UNC 路径)。
+- **存储协议支持**：本地路径 (Local)、FTP、SMB (UNC 路径)；FTP 支持匿名登录与账号密码登录。
 - **同步模式**：
   - 单向增量（A -> B，仅新增）
   - 单向更新（A -> B，新增+修改）
@@ -35,6 +35,7 @@
 - **哈希**：System.IO.Hashing（xxHash64）
 - **桌面壳集成**：System.Windows.Forms（NotifyIcon 托盘图标）
 - **系统集成**：Microsoft.Win32（注册表 Run 项开机启动）+ 启动参数（区分手动启动与静默托盘启动）
+- **凭据保护**：Windows DPAPI（当前用户作用域）用于 FTP 密码加密保存
 
 ---
 
@@ -107,9 +108,9 @@ Folder_sync/
   - 关键文件：`SyncExecutor.cs`, `SyncReport.cs`, `SyncMode.cs`, `TwoWayStateStore.cs`, `OneWayDeliveryStateStore.cs`, `SyncTaskFactory.cs`
 
 - **任务与设置持久化层**
-  - 职责：任务定义与应用设置落盘（JSON），供 UI 与调度层使用。
+  - 职责：任务定义与应用设置落盘（JSON），供 UI 与调度层使用；FTP 密码使用 Windows DPAPI 加密后保存。
   - 目录：`Core/Config`
-  - 关键文件：`SyncTaskDefinition.cs`, `TaskRepository.cs`, `AppSettings.cs`, `SettingsRepository.cs`
+  - 关键文件：`SyncTaskDefinition.cs`, `TaskRepository.cs`, `AppSettings.cs`, `SettingsRepository.cs`, `FtpCredentialProtector.cs`
 
 - **调度层**
   - 职责：按 Cron 触发同步任务。
@@ -156,7 +157,8 @@ Core/
 │  ├─ SyncTaskDefinition.cs
 │  ├─ TaskRepository.cs
 │  ├─ AppSettings.cs
-│  └─ SettingsRepository.cs
+│  ├─ SettingsRepository.cs
+│  └─ FtpCredentialProtector.cs
 ├─ Scheduler/
 │  ├─ SchedulerManager.cs
 │  └─ SyncJob.cs
@@ -202,7 +204,8 @@ UI/
 6. 已完成：当前用户级开机启动，设置页可写入或移除注册表 Run 项。
 7. 已完成：开机自启动场景使用启动参数静默驻留托盘，手动启动仍正常显示主窗口。
 8. 已完成：新增单向一次性同步模式，使用 SQLite 投递状态记录“已成功同步过”的文件，目标端后续删除不再补发，并支持任务级状态重置。
-9. 待增强：双向冲突策略可扩展（例如保留双版本、副本命名策略、交互式冲突处理）。
+9. 已完成：FTP 支持匿名登录与账号密码登录；密码使用 Windows DPAPI 加密保存，执行、分析与调度链路可自动恢复凭据。
+10. 待增强：双向冲突策略可扩展（例如保留双版本、副本命名策略、交互式冲突处理）。
 
 ---
 

@@ -10,7 +10,27 @@ namespace FolderSync.Core.Sync
     {
         public static (IFileSystem SourceFs, IFileSystem DestFs) CreateFileSystems(SyncTaskDefinition task)
         {
-            return (CreateFileSystem(task.SourceProtocol, task.SourcePath), CreateFileSystem(task.DestProtocol, task.DestPath));
+            return (CreateSourceFileSystem(task), CreateDestFileSystem(task));
+        }
+
+        public static IFileSystem CreateSourceFileSystem(SyncTaskDefinition task)
+        {
+            return CreateFileSystem(
+                task.SourceProtocol,
+                task.SourcePath,
+                task.SourceFtpUseAuthentication,
+                task.SourceFtpUsername,
+                task.SourceFtpEncryptedPassword);
+        }
+
+        public static IFileSystem CreateDestFileSystem(SyncTaskDefinition task)
+        {
+            return CreateFileSystem(
+                task.DestProtocol,
+                task.DestPath,
+                task.DestFtpUseAuthentication,
+                task.DestFtpUsername,
+                task.DestFtpEncryptedPassword);
         }
 
         public static FilterEngine CreateFilterEngine(DualListFilterConfiguration configuration)
@@ -64,28 +84,59 @@ namespace FolderSync.Core.Sync
                 : new SizeAndTimeDiffStrategy();
         }
 
-        public static IFileSystem CreateFileSystem(string protocol, string path)
+        public static IFileSystem CreateFileSystem(
+            string protocol,
+            string path,
+            bool ftpUseAuthentication = false,
+            string? ftpUsername = null,
+            string? ftpEncryptedPassword = null)
         {
             if (string.Equals(protocol, "FTP", StringComparison.OrdinalIgnoreCase))
             {
-                return CreateFtpFileSystem(path);
+                return CreateFtpFileSystem(path, ftpUseAuthentication, ftpUsername, ftpEncryptedPassword);
             }
 
             return new LocalFileSystem(path);
         }
 
-        private static IFileSystem CreateFtpFileSystem(string path)
+        private static IFileSystem CreateFtpFileSystem(
+            string path,
+            bool ftpUseAuthentication,
+            string? ftpUsername,
+            string? ftpEncryptedPassword)
         {
             if (!Uri.TryCreate(path, UriKind.Absolute, out var uri) || !string.Equals(uri.Scheme, "ftp", StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException("FTP 路径格式无效，请使用 ftp://host[:port]/basePath");
             }
 
+            if (!string.IsNullOrWhiteSpace(uri.UserInfo))
+            {
+                throw new InvalidOperationException("FTP 路径中不允许内嵌用户名或密码，请在认证配置中单独填写。");
+            }
+
             var host = uri.Host;
             var port = uri.IsDefaultPort ? 21 : uri.Port;
             var basePath = string.IsNullOrWhiteSpace(uri.AbsolutePath) ? "/" : uri.AbsolutePath;
+            var username = "anonymous";
+            var password = "anonymous@";
 
-            return new FtpFileSystem(host, "anonymous", "anonymous@", port, basePath);
+            if (ftpUseAuthentication)
+            {
+                if (string.IsNullOrWhiteSpace(ftpUsername))
+                {
+                    throw new InvalidOperationException("FTP 用户名不能为空。");
+                }
+
+                username = ftpUsername.Trim();
+                password = FtpCredentialProtector.Unprotect(ftpEncryptedPassword ?? string.Empty);
+                if (string.IsNullOrEmpty(password))
+                {
+                    throw new InvalidOperationException("已启用 FTP 账号密码登录，但未找到可用密码。");
+                }
+            }
+
+            return new FtpFileSystem(host, username, password, port, basePath);
         }
     }
 }

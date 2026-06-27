@@ -15,6 +15,12 @@ namespace FolderSync.Core.Config
         public string DestProtocol { get; set; } = "Local/SMB";
         public string SourcePath { get; set; } = string.Empty;
         public string DestPath { get; set; } = string.Empty;
+        public bool SourceFtpUseAuthentication { get; set; }
+        public string SourceFtpUsername { get; set; } = string.Empty;
+        public string SourceFtpEncryptedPassword { get; set; } = string.Empty;
+        public bool DestFtpUseAuthentication { get; set; }
+        public string DestFtpUsername { get; set; } = string.Empty;
+        public string DestFtpEncryptedPassword { get; set; } = string.Empty;
 
         public SyncMode SyncMode { get; set; } = SyncMode.OneWayUpdate;
         public string DiffStrategy { get; set; } = "SizeAndTime";

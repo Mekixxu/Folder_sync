@@ -86,7 +86,7 @@
                 </StackPanel>
 
                 <!-- 底部信息 -->
-                <TextBlock Grid.Row="2" Text="v0.0.23 Beta" Foreground="#BFC7DA" Margin="20,10,20,18" FontSize="12" />
+                <TextBlock Grid.Row="2" Text="v0.0.24 Beta" Foreground="#BFC7DA" Margin="20,10,20,18" FontSize="12" />
             </Grid>
         </Border>
 
