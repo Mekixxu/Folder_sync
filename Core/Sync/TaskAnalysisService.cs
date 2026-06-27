@@ -21,8 +21,8 @@ namespace FolderSync.Core.Sync
 
         public async Task<List<TaskAnalysisItem>> AnalyzeAsync(SyncTaskDefinition task, CancellationToken cancellationToken = default)
         {
-            var sourceFs = SyncTaskFactory.CreateSourceFileSystem(task);
-            var destFs = SyncTaskFactory.CreateDestFileSystem(task);
+            using var sourceFs = SyncTaskFactory.CreateSourceFileSystem(task);
+            using var destFs = SyncTaskFactory.CreateDestFileSystem(task);
             var diff = SyncTaskFactory.CreateDiffStrategy(task.DiffStrategy);
             var filterEngine = SyncTaskFactory.CreateFilterEngine(task.FilterConfiguration ?? new DualListFilterConfiguration());
             Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null;
@@ -35,6 +35,8 @@ namespace FolderSync.Core.Sync
 
             var filteredSource = filterEngine.Filter(rawSource).ToList();
             var filteredDest = filterEngine.Filter(rawDest).ToList();
+            var rawSourceFileCount = rawSource.Count(i => !i.IsDirectory);
+            var filteredSourceFileCount = filteredSource.Count(i => !i.IsDirectory);
             var isMirror = task.SyncMode == SyncMode.OneWayMirror;
             var diffActions = (await diff.CompareAsync(filteredSource, filteredDest, sourceFs, destFs, isMirror, cancellationToken)).ToList();
 
@@ -120,6 +122,17 @@ namespace FolderSync.Core.Sync
                 }
 
                 items.Add(item);
+            }
+
+            if (rawSourceFileCount > 0 && filteredSourceFileCount == 0)
+            {
+                items.Add(new TaskAnalysisItem
+                {
+                    RelativePath = "[分析提示]",
+                    ShouldSync = false,
+                    Direction = AnalysisDirection.None,
+                    Reason = $"源端共列举到 {rawSourceFileCount} 个文件，但 0 个文件命中过滤规则。请检查白名单/黑名单，尤其是扩展名和最近小时条件。"
+                });
             }
 
             return items

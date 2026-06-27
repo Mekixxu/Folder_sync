@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentFTP;
+using Serilog;
 
 namespace FolderSync.Core.VFS
 {
@@ -44,32 +45,13 @@ namespace FolderSync.Core.VFS
         {
             await ConnectAsync(cancellationToken);
             var fullPath = GetFullPath(path);
-            
-            // 采用递归或者仅顶层列表获取选项
-            var option = recursive ? FtpListOption.Recursive : FtpListOption.Auto;
-            
-            var ftpItems = await _client.GetListing(fullPath, option, cancellationToken);
-            var result = new List<FileItem>();
 
-            foreach (var item in ftpItems)
+            if (!recursive)
             {
-                // 跳过上层目录的指针（如 .. 和 .）
-                if (item.Name == "." || item.Name == "..") continue;
-
-                if (item.Type == FtpObjectType.Directory || item.Type == FtpObjectType.File)
-                {
-                    result.Add(new FileItem
-                    {
-                        Name = item.Name,
-                        Path = GetRelativePath(item.FullName),
-                        IsDirectory = item.Type == FtpObjectType.Directory,
-                        LastWriteTime = item.Modified,
-                        Size = item.Size
-                    });
-                }
+                return await ListSingleDirectoryAsync(fullPath, cancellationToken);
             }
 
-            return result;
+            return await ListDirectoriesBreadthFirstAsync(fullPath, cancellationToken);
         }
 
         public async Task<FileItem?> GetFileInfoAsync(string path, CancellationToken cancellationToken = default)
@@ -193,17 +175,137 @@ namespace FolderSync.Core.VFS
             return _basePath + relPathNormalized;
         }
 
+        private async Task<List<FileItem>> ListSingleDirectoryAsync(string fullPath, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var ftpItems = await _client.GetListing(fullPath, FtpListOption.Auto, cancellationToken);
+                var result = new List<FileItem>();
+
+                foreach (var item in ftpItems)
+                {
+                    if (!TryMapListItem(item, out var mapped))
+                    {
+                        continue;
+                    }
+
+                    result.Add(mapped);
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new IOException(
+                    $"FTP 列举目录失败：{DescribeDirectory(fullPath)}。{ex.Message}",
+                    ex);
+            }
+        }
+
+        private async Task<List<FileItem>> ListDirectoriesBreadthFirstAsync(string rootPath, CancellationToken cancellationToken)
+        {
+            var result = new List<FileItem>();
+            var pending = new Queue<string>();
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            pending.Enqueue(rootPath);
+            visited.Add(NormalizePath(rootPath));
+
+            while (pending.Count > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var currentPath = pending.Dequeue();
+                List<FileItem> items;
+                try
+                {
+                    items = await ListSingleDirectoryAsync(currentPath, cancellationToken);
+                }
+                catch (Exception ex) when (!string.Equals(NormalizePath(currentPath), NormalizePath(rootPath), StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Warning(ex, "FTP 递归列举跳过异常子目录：{Directory}", DescribeDirectory(currentPath));
+                    continue;
+                }
+
+                foreach (var item in items)
+                {
+                    result.Add(item);
+
+                    if (!item.IsDirectory)
+                    {
+                        continue;
+                    }
+
+                    var childFullPath = GetFullPath(item.Path);
+                    var normalizedChildPath = NormalizePath(childFullPath);
+                    if (visited.Add(normalizedChildPath))
+                    {
+                        pending.Enqueue(childFullPath);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        private bool TryMapListItem(FtpListItem item, out FileItem mappedItem)
+        {
+            mappedItem = null!;
+
+            // 跳过上层目录的指针（如 .. 和 .）
+            if (item.Name == "." || item.Name == "..")
+            {
+                return false;
+            }
+
+            if (item.Type != FtpObjectType.Directory && item.Type != FtpObjectType.File)
+            {
+                return false;
+            }
+
+            var fullName = ResolveFullName(item);
+            mappedItem = new FileItem
+            {
+                Name = item.Name,
+                Path = GetRelativePath(fullName),
+                IsDirectory = item.Type == FtpObjectType.Directory,
+                LastWriteTime = item.Modified,
+                Size = item.Size
+            };
+
+            return true;
+        }
+
+        private string ResolveFullName(FtpListItem item)
+        {
+            if (!string.IsNullOrWhiteSpace(item.FullName))
+            {
+                return NormalizePath(item.FullName);
+            }
+
+            if (string.IsNullOrWhiteSpace(item.Name))
+            {
+                return _basePath.TrimEnd('/');
+            }
+
+            return NormalizePath($"{_basePath.TrimEnd('/')}/{item.Name.TrimStart('/')}");
+        }
+
         /// <summary>
         /// 将 FTP 绝对路径转换为相对于 BasePath 的相对路径，并统一使用正斜杠 (/)
         /// </summary>
         private string GetRelativePath(string fullPath)
         {
-            if (fullPath.StartsWith(_basePath, StringComparison.OrdinalIgnoreCase))
+            var normalizedBasePath = NormalizePath(_basePath);
+            var normalizedFullPath = NormalizePath(fullPath);
+
+            if (normalizedFullPath.StartsWith(normalizedBasePath, StringComparison.OrdinalIgnoreCase))
             {
-                var rel = fullPath.Substring(_basePath.Length);
+                var rel = normalizedFullPath.Substring(normalizedBasePath.Length);
                 return rel.TrimStart('/');
             }
-            return fullPath.TrimStart('/');
+
+            return normalizedFullPath.TrimStart('/');
         }
 
         /// <summary>
@@ -217,6 +319,33 @@ namespace FolderSync.Core.VFS
                 return path.Substring(0, lastSlash);
             }
             return string.Empty;
+        }
+
+        private static string NormalizePath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return "/";
+            }
+
+            var normalized = path.Replace('\\', '/').Trim();
+            if (!normalized.StartsWith("/"))
+            {
+                normalized = "/" + normalized;
+            }
+
+            while (normalized.Contains("//", StringComparison.Ordinal))
+            {
+                normalized = normalized.Replace("//", "/", StringComparison.Ordinal);
+            }
+
+            return normalized.TrimEnd('/');
+        }
+
+        private string DescribeDirectory(string fullPath)
+        {
+            var relative = GetRelativePath(fullPath);
+            return string.IsNullOrWhiteSpace(relative) ? "/" : relative;
         }
     }
 }

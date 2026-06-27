@@ -117,7 +117,9 @@ namespace FolderSync.Core.Sync
 
             var host = uri.Host;
             var port = uri.IsDefaultPort ? 21 : uri.Port;
-            var basePath = string.IsNullOrWhiteSpace(uri.AbsolutePath) ? "/" : uri.AbsolutePath;
+            var basePath = string.IsNullOrWhiteSpace(uri.AbsolutePath)
+                ? "/"
+                : Uri.UnescapeDataString(uri.AbsolutePath);
             var username = "anonymous";
             var password = "anonymous@";
 
