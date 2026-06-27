@@ -2,6 +2,8 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
@@ -17,6 +19,7 @@ namespace FolderSync.UI.ViewModels
     /// </summary>
     public class TaskEditorViewModel : ViewModelBase
     {
+        private const int FtpConnectionTestTimeoutSeconds = 10;
         private readonly Action _goBackAction;
         private readonly TaskRepository _taskRepository = new();
         private readonly SyncTaskDefinition? _editingTask;
@@ -133,6 +136,19 @@ namespace FolderSync.UI.ViewModels
         public bool IsSourceFtpUserPassword => IsSourceFtp && string.Equals(SelectedSourceFtpAuthenticationMode, "账号密码登录", StringComparison.Ordinal);
         public bool IsDestFtpUserPassword => IsDestFtp && string.Equals(SelectedDestFtpAuthenticationMode, "账号密码登录", StringComparison.Ordinal);
 
+        private bool _isTestingFtpConnection;
+        public bool IsTestingFtpConnection
+        {
+            get => _isTestingFtpConnection;
+            set
+            {
+                if (SetProperty(ref _isTestingFtpConnection, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
         // 同步模式与策略
         public ObservableCollection<string> SyncModes { get; } = new(new[] { "单向增量 (仅新增)", "单向更新 (新增与修改)", "单向一次性同步 (仅首次成功后不再补发)", "单向镜像 (让B等于A)", "双向同步 (实验性)" });
         private string _selectedSyncMode = "单向更新 (新增与修改)";
@@ -217,8 +233,8 @@ namespace FolderSync.UI.ViewModels
             _editingTask = editingTask;
             BrowseSourceCommand = new RelayCommand(_ => BrowseFolder(isSource: true));
             BrowseDestCommand = new RelayCommand(_ => BrowseFolder(isSource: false));
-            TestSourceFtpConnectionCommand = new RelayCommand(_ => TestFtpConnection(isSource: true));
-            TestDestFtpConnectionCommand = new RelayCommand(_ => TestFtpConnection(isSource: false));
+            TestSourceFtpConnectionCommand = new RelayCommand(async _ => await TestFtpConnectionAsync(isSource: true), _ => !IsTestingFtpConnection);
+            TestDestFtpConnectionCommand = new RelayCommand(async _ => await TestFtpConnectionAsync(isSource: false), _ => !IsTestingFtpConnection);
             CancelCommand = new RelayCommand(_ => goBackAction?.Invoke());
             SaveTaskCommand = new RelayCommand(SaveTask, CanSaveTask);
 
@@ -395,7 +411,7 @@ namespace FolderSync.UI.ViewModels
             }
         }
 
-        private void TestFtpConnection(bool isSource)
+        private async Task TestFtpConnectionAsync(bool isSource)
         {
             var displayName = isSource ? "源目录" : "目标目录";
             var path = isSource ? SourcePath : DestPath;
@@ -410,11 +426,13 @@ namespace FolderSync.UI.ViewModels
 
             try
             {
+                IsTestingFtpConnection = true;
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(FtpConnectionTestTimeoutSeconds));
                 var encryptedPassword = useAuthentication ? FtpCredentialProtector.Protect(password) : string.Empty;
                 using var fs = SyncTaskFactory.CreateFileSystem("FTP", path.Trim(), useAuthentication, username, encryptedPassword);
-                fs.ConnectAsync().GetAwaiter().GetResult();
+                await fs.ConnectAsync(timeoutCts.Token);
 
-                var basePathExists = fs.DirectoryExistsAsync(string.Empty).GetAwaiter().GetResult();
+                var basePathExists = await fs.DirectoryExistsAsync(string.Empty, timeoutCts.Token);
                 if (!basePathExists)
                 {
                     MessageBox.Show($"{displayName}连接成功，但基础路径不存在或当前账号无权访问。", "FTP 测试结果", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -423,9 +441,21 @@ namespace FolderSync.UI.ViewModels
 
                 MessageBox.Show($"{displayName}FTP 连接成功，认证信息和基础路径均有效。", "FTP 测试成功", MessageBoxButton.OK, MessageBoxImage.Information);
             }
+            catch (OperationCanceledException)
+            {
+                MessageBox.Show(
+                    $"{displayName}FTP 连接超时（超过 {FtpConnectionTestTimeoutSeconds} 秒）。请检查主机地址、端口、防火墙或服务器响应状态。",
+                    "FTP 测试超时",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
             catch (Exception ex)
             {
                 MessageBox.Show($"{displayName}FTP 连接失败：{ex.Message}", "FTP 测试失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsTestingFtpConnection = false;
             }
         }
 
