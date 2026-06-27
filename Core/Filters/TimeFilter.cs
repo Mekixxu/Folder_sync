@@ -21,6 +21,11 @@ namespace FolderSync.Core.Filters
 
         public bool IsMatch(FileItem item)
         {
+            if (item == null)
+            {
+                return false;
+            }
+
             var itemAgeInHours = (_referenceTimeUtc - item.LastWriteTime).TotalHours;
 
             if (item.IsDirectory)

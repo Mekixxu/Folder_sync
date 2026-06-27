@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FolderSync.Core.VFS;
@@ -54,6 +55,11 @@ namespace FolderSync.Core.Filters
         /// </summary>
         public bool IsAllowed(FileItem item)
         {
+            if (item == null)
+            {
+                return false;
+            }
+
             var passWhitelist = !_whitelistFilters.Any() || _whitelistFilters.All(filter => filter.IsMatch(item));
             if (!passWhitelist)
             {
@@ -74,7 +80,40 @@ namespace FolderSync.Core.Filters
         /// </summary>
         public IEnumerable<FileItem> Filter(IEnumerable<FileItem> items)
         {
-            return items.Where(IsAllowed);
+            if (items == null)
+            {
+                return Enumerable.Empty<FileItem>();
+            }
+
+            return FilterIterator(items);
+        }
+
+        private IEnumerable<FileItem> FilterIterator(IEnumerable<FileItem> items)
+        {
+            foreach (var item in items)
+            {
+                if (item == null)
+                {
+                    continue;
+                }
+
+                bool isAllowed;
+                try
+                {
+                    isAllowed = IsAllowed(item);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException(
+                        $"过滤规则评估失败。Path='{item.Path ?? string.Empty}', Name='{item.Name ?? string.Empty}'。",
+                        ex);
+                }
+
+                if (isAllowed)
+                {
+                    yield return item;
+                }
+            }
         }
 
         private static void BuildFilters(FilterRuleSet rules, List<IFilter> target)

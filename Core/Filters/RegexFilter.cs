@@ -28,13 +28,18 @@ namespace FolderSync.Core.Filters
 
         public bool IsMatch(FileItem item)
         {
+            if (item == null)
+            {
+                return false;
+            }
+
             if (_regexPattern == null)
             {
                 return true;
             }
 
             // 对完整相对路径进行匹配，而不仅仅是文件名
-            bool isMatch = _regexPattern.IsMatch(item.Path);
+            bool isMatch = _regexPattern.IsMatch(item.Path ?? item.Name ?? string.Empty);
 
             return _isExcludePattern ? !isMatch : isMatch;
         }

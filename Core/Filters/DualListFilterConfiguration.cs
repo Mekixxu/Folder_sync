@@ -13,7 +13,7 @@ namespace FolderSync.Core.Filters
         public FilterRuleSet Whitelist { get; init; } = new();
         public FilterRuleSet Blacklist { get; init; } = new();
 
-        public bool IsAllowAll => !Whitelist.HasAnyRule && !Blacklist.HasAnyRule;
+        public bool IsAllowAll => !(Whitelist?.HasAnyRule ?? false) && !(Blacklist?.HasAnyRule ?? false);
 
         /// <summary>
         /// 兼容历史单名单配置：

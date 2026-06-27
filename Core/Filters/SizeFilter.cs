@@ -18,6 +18,11 @@ namespace FolderSync.Core.Filters
 
         public bool IsMatch(FileItem item)
         {
+            if (item == null)
+            {
+                return false;
+            }
+
             // 目录没有大小概念，跳过过滤
             if (item.IsDirectory)
             {

@@ -45,6 +45,11 @@ namespace FolderSync.Core.Filters
 
         public bool IsMatch(FileItem item)
         {
+            if (item == null)
+            {
+                return false;
+            }
+
             // 目录不应用扩展名过滤规则
             if (item.IsDirectory)
             {
@@ -56,7 +61,7 @@ namespace FolderSync.Core.Filters
                 return true;
             }
 
-            var extension = Path.GetExtension(item.Name);
+            var extension = Path.GetExtension(item.Name ?? item.Path ?? string.Empty);
             var contains = _extensions.Contains(extension);
 
             // 白名单：包含则允许；黑名单：不包含则允许
