@@ -20,6 +20,13 @@ namespace FolderSync.UI.ViewModels
     public class TaskEditorViewModel : ViewModelBase
     {
         private const int FtpConnectionTestTimeoutSeconds = 10;
+        private enum FtpConnectionTestResultType
+        {
+            Success,
+            BasePathUnavailable
+        }
+
+        private readonly record struct FtpConnectionTestResult(FtpConnectionTestResultType ResultType, string DisplayName);
         private readonly Action _goBackAction;
         private readonly TaskRepository _taskRepository = new();
         private readonly SyncTaskDefinition? _editingTask;
@@ -427,36 +434,69 @@ namespace FolderSync.UI.ViewModels
             try
             {
                 IsTestingFtpConnection = true;
-                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(FtpConnectionTestTimeoutSeconds));
-                var encryptedPassword = useAuthentication ? FtpCredentialProtector.Protect(password) : string.Empty;
-                using var fs = SyncTaskFactory.CreateFileSystem("FTP", path.Trim(), useAuthentication, username, encryptedPassword);
-                await fs.ConnectAsync(timeoutCts.Token);
+                var testResult = await Task.Run(
+                    () => ExecuteFtpConnectionTest(displayName, path, useAuthentication, username, password));
 
-                var basePathExists = await fs.DirectoryExistsAsync(string.Empty, timeoutCts.Token);
-                if (!basePathExists)
+                if (testResult.ResultType == FtpConnectionTestResultType.BasePathUnavailable)
                 {
-                    MessageBox.Show($"{displayName}连接成功，但基础路径不存在或当前账号无权访问。", "FTP 测试结果", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    ShowOwnedMessageBox(
+                        $"{displayName}连接成功，但基础路径不存在或当前账号无权访问。",
+                        "FTP 测试结果",
+                        MessageBoxImage.Warning);
                     return;
                 }
 
-                MessageBox.Show($"{displayName}FTP 连接成功，认证信息和基础路径均有效。", "FTP 测试成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                ShowOwnedMessageBox(
+                    $"{displayName}FTP 连接成功，认证信息和基础路径均有效。",
+                    "FTP 测试成功",
+                    MessageBoxImage.Information);
             }
             catch (OperationCanceledException)
             {
-                MessageBox.Show(
+                ShowOwnedMessageBox(
                     $"{displayName}FTP 连接超时（超过 {FtpConnectionTestTimeoutSeconds} 秒）。请检查主机地址、端口、防火墙或服务器响应状态。",
                     "FTP 测试超时",
-                    MessageBoxButton.OK,
                     MessageBoxImage.Warning);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"{displayName}FTP 连接失败：{ex.Message}", "FTP 测试失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowOwnedMessageBox($"{displayName}FTP 连接失败：{ex.Message}", "FTP 测试失败", MessageBoxImage.Error);
             }
             finally
             {
                 IsTestingFtpConnection = false;
             }
+        }
+
+        private static FtpConnectionTestResult ExecuteFtpConnectionTest(
+            string displayName,
+            string path,
+            bool useAuthentication,
+            string username,
+            string password)
+        {
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(FtpConnectionTestTimeoutSeconds));
+            var encryptedPassword = useAuthentication ? FtpCredentialProtector.Protect(password) : string.Empty;
+            using var fs = SyncTaskFactory.CreateFileSystem("FTP", path.Trim(), useAuthentication, username, encryptedPassword);
+
+            fs.ConnectAsync(timeoutCts.Token).GetAwaiter().GetResult();
+            var basePathExists = fs.DirectoryExistsAsync(string.Empty, timeoutCts.Token).GetAwaiter().GetResult();
+
+            return basePathExists
+                ? new FtpConnectionTestResult(FtpConnectionTestResultType.Success, displayName)
+                : new FtpConnectionTestResult(FtpConnectionTestResultType.BasePathUnavailable, displayName);
+        }
+
+        private static void ShowOwnedMessageBox(string message, string title, MessageBoxImage icon)
+        {
+            var owner = Application.Current?.MainWindow;
+            if (owner != null)
+            {
+                MessageBox.Show(owner, message, title, MessageBoxButton.OK, icon);
+                return;
+            }
+
+            MessageBox.Show(message, title, MessageBoxButton.OK, icon);
         }
 
         private SyncTaskDefinition BuildTaskDefinition(DualListFilterConfiguration configuration)
