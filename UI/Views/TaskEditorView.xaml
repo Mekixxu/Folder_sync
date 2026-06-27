@@ -67,6 +67,11 @@
                                                        FontSize="12"
                                                        TextWrapping="Wrap"/>
                                         </StackPanel>
+                                        <Button Content="测试连接"
+                                                Style="{StaticResource SecondaryActionButtonStyle}"
+                                                Command="{Binding TestSourceFtpConnectionCommand}"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,10,0,0"/>
                                     </StackPanel>
                                     <Button Content="浏览文件夹" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding BrowseSourceCommand}" HorizontalAlignment="Right" Margin="0"/>
                                 </StackPanel>
@@ -101,6 +106,11 @@
                                                        FontSize="12"
                                                        TextWrapping="Wrap"/>
                                         </StackPanel>
+                                        <Button Content="测试连接"
+                                                Style="{StaticResource SecondaryActionButtonStyle}"
+                                                Command="{Binding TestDestFtpConnectionCommand}"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,10,0,0"/>
                                     </StackPanel>
                                     <Button Content="浏览文件夹" Style="{StaticResource SecondaryActionButtonStyle}" Command="{Binding BrowseDestCommand}" HorizontalAlignment="Right" Margin="0"/>
                                 </StackPanel>

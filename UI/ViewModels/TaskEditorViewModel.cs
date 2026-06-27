@@ -206,6 +206,8 @@ namespace FolderSync.UI.ViewModels
         // 命令
         public ICommand BrowseSourceCommand { get; }
         public ICommand BrowseDestCommand { get; }
+        public ICommand TestSourceFtpConnectionCommand { get; }
+        public ICommand TestDestFtpConnectionCommand { get; }
         public ICommand CancelCommand { get; }
         public ICommand SaveTaskCommand { get; }
 
@@ -215,6 +217,8 @@ namespace FolderSync.UI.ViewModels
             _editingTask = editingTask;
             BrowseSourceCommand = new RelayCommand(_ => BrowseFolder(isSource: true));
             BrowseDestCommand = new RelayCommand(_ => BrowseFolder(isSource: false));
+            TestSourceFtpConnectionCommand = new RelayCommand(_ => TestFtpConnection(isSource: true));
+            TestDestFtpConnectionCommand = new RelayCommand(_ => TestFtpConnection(isSource: false));
             CancelCommand = new RelayCommand(_ => goBackAction?.Invoke());
             SaveTaskCommand = new RelayCommand(SaveTask, CanSaveTask);
 
@@ -388,6 +392,40 @@ namespace FolderSync.UI.ViewModels
                 {
                     DestPath = selectedDirectory;
                 }
+            }
+        }
+
+        private void TestFtpConnection(bool isSource)
+        {
+            var displayName = isSource ? "源目录" : "目标目录";
+            var path = isSource ? SourcePath : DestPath;
+            var useAuthentication = isSource ? IsSourceFtpUserPassword : IsDestFtpUserPassword;
+            var username = isSource ? SourceFtpUsername : DestFtpUsername;
+            var password = isSource ? SourceFtpPassword : DestFtpPassword;
+
+            if (!ValidateSingleFtpEndpoint(displayName, path, useAuthentication, username, password))
+            {
+                return;
+            }
+
+            try
+            {
+                var encryptedPassword = useAuthentication ? FtpCredentialProtector.Protect(password) : string.Empty;
+                using var fs = SyncTaskFactory.CreateFileSystem("FTP", path.Trim(), useAuthentication, username, encryptedPassword);
+                fs.ConnectAsync().GetAwaiter().GetResult();
+
+                var basePathExists = fs.DirectoryExistsAsync(string.Empty).GetAwaiter().GetResult();
+                if (!basePathExists)
+                {
+                    MessageBox.Show($"{displayName}连接成功，但基础路径不存在或当前账号无权访问。", "FTP 测试结果", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                MessageBox.Show($"{displayName}FTP 连接成功，认证信息和基础路径均有效。", "FTP 测试成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"{displayName}FTP 连接失败：{ex.Message}", "FTP 测试失败", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
