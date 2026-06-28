@@ -56,10 +56,12 @@
     <sys:String x:Key="Dashboard.RunningTasks" xmlns:sys="clr-namespace:System;assembly=mscorlib">Running Tasks</sys:String>
     <sys:String x:Key="Dashboard.EmptyRunning" xmlns:sys="clr-namespace:System;assembly=mscorlib">No running sync tasks</sys:String>
 
-    <sys:String x:Key="Logs.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reports &amp; Logs</sys:String>
+    <sys:String x:Key="Logs.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">Log Files</sys:String>
     <sys:String x:Key="Logs.Refresh" xmlns:sys="clr-namespace:System;assembly=mscorlib">Refresh</sys:String>
-    <sys:String x:Key="Logs.History" xmlns:sys="clr-namespace:System;assembly=mscorlib">Log Files</sys:String>
+    <sys:String x:Key="Logs.History" xmlns:sys="clr-namespace:System;assembly=mscorlib">Text logs in the log folder</sys:String>
     <sys:String x:Key="Logs.EmptyFiles" xmlns:sys="clr-namespace:System;assembly=mscorlib">No log files</sys:String>
     <sys:String x:Key="Logs.OpenExternal" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open in external editor</sys:String>
-    <sys:String x:Key="Logs.ContentHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">Log content will appear here...</sys:String>
+    <sys:String x:Key="Logs.ContentHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">In-app log preview is removed. Select a file and open it in your external editor.</sys:String>
+    <sys:String x:Key="Logs.DirectoryLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Log Directory</sys:String>
+    <sys:String x:Key="Logs.PathLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Selected File</sys:String>
 </ResourceDictionary>

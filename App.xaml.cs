@@ -83,8 +83,8 @@ namespace FolderSync
 
         private void InitializeLogging()
         {
-            // 确定日志文件存放目录 (当前运行目录下的 logs 文件夹)
-            string logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            // 确定日志文件存放目录 (当前运行目录下的 log 文件夹)
+            string logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log");
             if (!Directory.Exists(logDirectory))
             {
                 Directory.CreateDirectory(logDirectory);
@@ -93,7 +93,7 @@ namespace FolderSync
             // 运行日志文件：无固定前缀，使用时间戳+进程号，避免重名并便于追溯单次运行
             string runtimeLogFile = Path.Combine(
                 logDirectory,
-                $"{DateTime.Now:yyyyMMdd_HHmmss_fff}_{Environment.ProcessId}.txt"
+                $"{DateTime.Now:yyyyMMdd_HHmmss_fff}_{Environment.ProcessId}.log"
             );
 
             // 配置 Serilog

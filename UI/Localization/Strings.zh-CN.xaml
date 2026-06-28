@@ -56,10 +56,12 @@
     <sys:String x:Key="Dashboard.RunningTasks" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在运行的任务</sys:String>
     <sys:String x:Key="Dashboard.EmptyRunning" xmlns:sys="clr-namespace:System;assembly=mscorlib">暂无正在运行的同步任务</sys:String>
 
-    <sys:String x:Key="Logs.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">运行报告与日志</sys:String>
+    <sys:String x:Key="Logs.Title" xmlns:sys="clr-namespace:System;assembly=mscorlib">日志文件</sys:String>
     <sys:String x:Key="Logs.Refresh" xmlns:sys="clr-namespace:System;assembly=mscorlib">刷新列表</sys:String>
-    <sys:String x:Key="Logs.History" xmlns:sys="clr-namespace:System;assembly=mscorlib">历史日志文件</sys:String>
+    <sys:String x:Key="Logs.History" xmlns:sys="clr-namespace:System;assembly=mscorlib">log 文件夹中的文本日志</sys:String>
     <sys:String x:Key="Logs.EmptyFiles" xmlns:sys="clr-namespace:System;assembly=mscorlib">暂无日志文件</sys:String>
     <sys:String x:Key="Logs.OpenExternal" xmlns:sys="clr-namespace:System;assembly=mscorlib">在外部编辑器中打开</sys:String>
-    <sys:String x:Key="Logs.ContentHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">日志内容将显示在这里...</sys:String>
+    <sys:String x:Key="Logs.ContentHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序内不再提供日志内容预览。请选择文件后，在外部编辑器中自行打开。</sys:String>
+    <sys:String x:Key="Logs.DirectoryLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">日志目录</sys:String>
+    <sys:String x:Key="Logs.PathLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">当前选中文件</sys:String>
 </ResourceDictionary>

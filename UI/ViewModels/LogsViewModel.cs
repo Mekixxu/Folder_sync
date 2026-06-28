@@ -9,11 +9,11 @@ using Serilog;
 namespace FolderSync.UI.ViewModels
 {
     /// <summary>
-    /// 日志查看器的视图模型
+    /// 日志文件列表视图模型，仅提供文件列表与外部打开入口。
     /// </summary>
     public class LogsViewModel : ViewModelBase
     {
-        private readonly string _logsDirectory;
+        private readonly string _logDirectory;
 
         public ObservableCollection<LogFileItemViewModel> LogFiles { get; } = new();
 
@@ -26,26 +26,23 @@ namespace FolderSync.UI.ViewModels
                 if (SetProperty(ref _selectedLogFile, value))
                 {
                     OnPropertyChanged(nameof(IsLogSelected));
-                    LoadLogContent();
+                    OnPropertyChanged(nameof(SelectedLogTitle));
+                    OnPropertyChanged(nameof(SelectedLogPath));
                 }
             }
         }
 
         public bool IsLogSelected => SelectedLogFile != null;
-
-        private string _logContent = string.Empty;
-        public string LogContent
-        {
-            get => _logContent;
-            set => SetProperty(ref _logContent, value);
-        }
+        public string LogDirectory => _logDirectory;
+        public string SelectedLogTitle => SelectedLogFile?.FileName ?? "请选择一个日志文件";
+        public string SelectedLogPath => SelectedLogFile?.FullPath ?? Path.Combine(_logDirectory, "<日志文件名>");
 
         public ICommand RefreshCommand { get; }
         public ICommand OpenInEditorCommand { get; }
 
         public LogsViewModel()
         {
-            _logsDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log");
             
             RefreshCommand = new RelayCommand(_ => LoadLogFiles());
             OpenInEditorCommand = new RelayCommand(_ => OpenSelectedLogFile(), _ => IsLogSelected);
@@ -57,11 +54,16 @@ namespace FolderSync.UI.ViewModels
         {
             LogFiles.Clear();
             SelectedLogFile = null;
-            LogContent = string.Empty;
 
-            if (Directory.Exists(_logsDirectory))
+            if (Directory.Exists(_logDirectory))
             {
-                var files = Directory.GetFiles(_logsDirectory, "*.txt")
+                var files = Directory.EnumerateFiles(_logDirectory)
+                    .Where(f =>
+                    {
+                        var extension = Path.GetExtension(f);
+                        return string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(extension, ".log", StringComparison.OrdinalIgnoreCase);
+                    })
                     .Select(f => new FileInfo(f))
                     .Select(f => new LogFileItemViewModel
                     {
@@ -78,29 +80,6 @@ namespace FolderSync.UI.ViewModels
                 {
                     LogFiles.Add(file);
                 }
-            }
-        }
-
-        private void LoadLogContent()
-        {
-            if (SelectedLogFile != null && File.Exists(SelectedLogFile.FullPath))
-            {
-                try
-                {
-                    // 使用 FileShare.ReadWrite 打开以允许在写入日志时读取
-                    using var stream = new FileStream(SelectedLogFile.FullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                    using var reader = new StreamReader(stream);
-                    LogContent = reader.ReadToEnd();
-                }
-                catch (Exception ex)
-                {
-                    LogContent = $"无法读取日志文件内容: {ex.Message}";
-                    Log.Error(ex, "Failed to read log file {FileName}", SelectedLogFile.FileName);
-                }
-            }
-            else
-            {
-                LogContent = string.Empty;
             }
         }
 
@@ -155,5 +134,6 @@ namespace FolderSync.UI.ViewModels
         public DateTime LastModified { get; set; }
         public string Kind { get; set; } = "Runtime";
         public int KindPriority => string.Equals(Kind, "Report", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+        public string FileExtension => Path.GetExtension(FileName).TrimStart('.').ToUpperInvariant();
     }
 }

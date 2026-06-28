@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -261,6 +262,7 @@ namespace FolderSync.UI.ViewModels
             try
             {
                 var reportCount = 0;
+                var reportFileNames = new List<string>();
                 foreach (var task in selected)
                 {
                     var analysisItems = _analysisService.HasSavedAnalysis(task.Definition)
@@ -274,11 +276,12 @@ namespace FolderSync.UI.ViewModels
 
                     MarkTaskAnalysisCompleted(task.TaskVm, true);
                     var report = await ExecuteSelectedItemsAsync(task.Definition, analysisItems);
-                    SyncReportFileWriter.Write(task.Definition.Id, task.Definition.TaskName, report);
+                    var reportPath = SyncReportFileWriter.Write(task.Definition.Id, task.Definition.TaskName, report);
+                    reportFileNames.Add(Path.GetFileName(reportPath));
                     reportCount++;
                 }
 
-                MessageBox.Show($"批量执行完成，共处理 {reportCount} 个任务。", "执行完成", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(BuildReportSummaryMessage($"批量执行完成，共处理 {reportCount} 个任务。", reportFileNames), "执行完成", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -305,6 +308,7 @@ namespace FolderSync.UI.ViewModels
                 IsAnalysisProgressVisible = true;
                 AnalysisProgressMaximum = selected.Count;
                 AnalysisProgressValue = 0;
+                var reportFileNames = new List<string>();
 
                 for (var i = 0; i < selected.Count; i++)
                 {
@@ -322,11 +326,12 @@ namespace FolderSync.UI.ViewModels
                 {
                     var analysisItems = _analysisService.GetSavedAnalysis(task.Definition);
                     var report = await ExecuteSelectedItemsAsync(task.Definition, analysisItems);
-                    SyncReportFileWriter.Write(task.Definition.Id, task.Definition.TaskName, report);
+                    var reportPath = SyncReportFileWriter.Write(task.Definition.Id, task.Definition.TaskName, report);
+                    reportFileNames.Add(Path.GetFileName(reportPath));
                 }
 
                 AnalysisStatusText = $"同步完成，共处理 {selected.Count} 个任务。";
-                MessageBox.Show(AnalysisStatusText, "同步完成", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(BuildReportSummaryMessage(AnalysisStatusText, reportFileNames), "同步完成", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -376,6 +381,21 @@ namespace FolderSync.UI.ViewModels
         private static void MarkTaskAnalysisCompleted(TaskListItemViewModel taskVm, bool completed)
         {
             taskVm.IsAnalysisCompleted = completed;
+        }
+
+        private static string BuildReportSummaryMessage(string prefix, IReadOnlyList<string> reportFileNames)
+        {
+            if (reportFileNames.Count == 0)
+            {
+                return prefix;
+            }
+
+            var preview = string.Join(Environment.NewLine, reportFileNames.Take(5).Select(name => $"- {name}"));
+            var suffix = reportFileNames.Count > 5
+                ? $"{Environment.NewLine}... 其余 {reportFileNames.Count - 5} 个文件也已写入 log 文件夹。"
+                : string.Empty;
+
+            return $"{prefix}{Environment.NewLine}{Environment.NewLine}生成的日志/报告文件：{Environment.NewLine}{preview}{suffix}{Environment.NewLine}{Environment.NewLine}请到程序目录下的 log 文件夹中自行打开。";
         }
 
         private void TaskItemOnPropertyChanged(object? sender, PropertyChangedEventArgs e)

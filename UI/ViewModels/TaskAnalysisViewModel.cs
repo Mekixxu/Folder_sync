@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
@@ -121,11 +122,15 @@ namespace FolderSync.UI.ViewModels
                 var selected = BuildAnalysisItemsFromRows();
 
                 var report = _service.ExecuteSelectedAsync(_task, selected).GetAwaiter().GetResult();
-                SyncReportFileWriter.Write(_task.Id, _task.TaskName, report);
+                var reportPath = SyncReportFileWriter.Write(_task.Id, _task.TaskName, report);
                 _service.SaveAnalysis(_task, selected);
                 _onSaved?.Invoke();
                 HasUnsavedChanges = false;
-                MessageBox.Show($"已执行 {selected.Count(x => x.ShouldSync)} 项。", "执行完成", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(
+                    $"已执行 {selected.Count(x => x.ShouldSync)} 项。{Environment.NewLine}{Environment.NewLine}生成的日志/报告文件：{Environment.NewLine}- {Path.GetFileName(reportPath)}{Environment.NewLine}{Environment.NewLine}请到程序目录下的 log 文件夹中自行打开。",
+                    "执行完成",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
                 LoadAnalysis(useSavedIfAvailable: false);
             }
             catch (Exception ex)

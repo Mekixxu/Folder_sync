@@ -13,17 +13,17 @@ namespace FolderSync.Core.Reporting
     {
         public static string Write(string taskId, string taskName, SyncReport report)
         {
-            var logsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-            Directory.CreateDirectory(logsDir);
+            var logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log");
+            Directory.CreateDirectory(logDir);
 
             var safeTaskId = Sanitize(taskId);
             var safeTaskName = Sanitize(taskName);
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
             var nonce = Guid.NewGuid().ToString("N")[..8];
 
-            // 命名规则：无 foldersync 前缀，含毫秒 + taskId + 随机后缀，彻底规避并发重名
-            var fileName = $"{timestamp}_{safeTaskId}_{nonce}.txt";
-            var path = Path.Combine(logsDir, fileName);
+            // 命名规则：含任务名 + taskId + 毫秒 + 随机后缀，便于用户按文件名自行打开
+            var fileName = $"{timestamp}_{safeTaskName}_{safeTaskId}_{nonce}.txt";
+            var path = Path.Combine(logDir, fileName);
 
             var sb = new StringBuilder();
             sb.AppendLine($"TaskName: {taskName}");
