@@ -47,7 +47,14 @@ namespace FolderSync.UI.ViewModels
         public ICommand ExecuteSelectedCommand { get; }
         public ICommand RefreshAnalysisCommand { get; }
         public ICommand SaveAnalysisCommand { get; }
+        private bool _isExecuting;
         private bool _hasUnsavedChanges;
+        public bool IsExecuting
+        {
+            get => _isExecuting;
+            set => SetProperty(ref _isExecuting, value);
+        }
+
         public bool HasUnsavedChanges
         {
             get => _hasUnsavedChanges;
@@ -65,7 +72,7 @@ namespace FolderSync.UI.ViewModels
             _task = task;
             _service = service ?? new TaskAnalysisService();
             _onSaved = onSaved;
-            ExecuteSelectedCommand = new RelayCommand(_ => ExecuteSelected());
+            ExecuteSelectedCommand = new RelayCommand(async _ => await ExecuteSelectedAsync(), _ => !IsExecuting);
             RefreshAnalysisCommand = new RelayCommand(_ => RefreshAnalysis());
             SaveAnalysisCommand = new RelayCommand(_ => SaveAnalysis());
             LoadAnalysis(useSavedIfAvailable: true);
@@ -115,19 +122,30 @@ namespace FolderSync.UI.ViewModels
             }
         }
 
-        private void ExecuteSelected()
+        private async Task ExecuteSelectedAsync()
         {
+            if (IsExecuting)
+            {
+                return;
+            }
+
             try
             {
+                IsExecuting = true;
+                CommandManager.InvalidateRequerySuggested();
                 var selected = BuildAnalysisItemsFromRows();
+                var executionResult = await Task.Run(async () =>
+                {
+                    var report = await _service.ExecuteSelectedAsync(_task, selected);
+                    var reportPath = SyncReportFileWriter.Write(_task.Id, _task.TaskName, report);
+                    _service.SaveAnalysis(_task, selected);
+                    return (report, reportPath);
+                });
 
-                var report = _service.ExecuteSelectedAsync(_task, selected).GetAwaiter().GetResult();
-                var reportPath = SyncReportFileWriter.Write(_task.Id, _task.TaskName, report);
-                _service.SaveAnalysis(_task, selected);
                 _onSaved?.Invoke();
                 HasUnsavedChanges = false;
                 MessageBox.Show(
-                    $"已执行 {selected.Count(x => x.ShouldSync)} 项。{Environment.NewLine}{Environment.NewLine}生成的日志/报告文件：{Environment.NewLine}- {Path.GetFileName(reportPath)}{Environment.NewLine}{Environment.NewLine}请到程序目录下的 log 文件夹中自行打开。",
+                    $"已执行 {selected.Count(x => x.ShouldSync)} 项。{Environment.NewLine}{Environment.NewLine}生成的日志/报告文件：{Environment.NewLine}- {Path.GetFileName(executionResult.reportPath)}{Environment.NewLine}{Environment.NewLine}请到程序目录下的 log 文件夹中自行打开。",
                     "执行完成",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
@@ -136,6 +154,11 @@ namespace FolderSync.UI.ViewModels
             catch (Exception ex)
             {
                 MessageBox.Show($"执行失败：{ex.Message}", "执行失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsExecuting = false;
+                CommandManager.InvalidateRequerySuggested();
             }
         }
 
