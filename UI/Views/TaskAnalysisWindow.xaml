@@ -36,27 +36,53 @@
             </WrapPanel>
         </StackPanel>
 
-        <DataGrid Grid.Row="1"
-                  ItemsSource="{Binding Items}"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  IsReadOnly="False"
-                  SelectionMode="Extended"
-                  HeadersVisibility="Column"
-                  RowBackground="{StaticResource AppSurfaceBrush}"
-                  AlternatingRowBackground="{StaticResource AppSurfaceAltBrush}"
-                  GridLinesVisibility="Horizontal">
-            <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="{DynamicResource Analysis.Sync}" Binding="{Binding ShouldSync, Mode=TwoWay}" Width="80"/>
-                <DataGridTextColumn Header="{DynamicResource Analysis.Path}" Binding="{Binding RelativePath}" Width="3*"/>
-                <DataGridTextColumn Header="{DynamicResource Analysis.Direction}" Binding="{Binding DirectionLabel}" Width="90"/>
-                <DataGridTextColumn Header="{DynamicResource Analysis.Reason}" Binding="{Binding Reason}" Width="2*"/>
-                <DataGridTextColumn Header="{DynamicResource Analysis.SourceSize}" Binding="{Binding SourceSize}" Width="130"/>
-                <DataGridTextColumn Header="{DynamicResource Analysis.DestSize}" Binding="{Binding DestSize}" Width="130"/>
-                <DataGridTextColumn Header="{DynamicResource Analysis.SourceTime}" Binding="{Binding SourceLastWrite, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="160"/>
-                <DataGridTextColumn Header="{DynamicResource Analysis.DestTime}" Binding="{Binding DestLastWrite, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="160"/>
-            </DataGrid.Columns>
-        </DataGrid>
+        <Grid Grid.Row="1">
+            <DataGrid ItemsSource="{Binding Items}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      IsReadOnly="False"
+                      SelectionMode="Extended"
+                      HeadersVisibility="Column"
+                      RowBackground="{StaticResource AppSurfaceBrush}"
+                      AlternatingRowBackground="{StaticResource AppSurfaceAltBrush}"
+                      GridLinesVisibility="Horizontal">
+                <DataGrid.Style>
+                    <Style TargetType="DataGrid">
+                        <Setter Property="IsEnabled" Value="True" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                <Setter Property="IsEnabled" Value="False" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.Style>
+                <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="{DynamicResource Analysis.Sync}" Binding="{Binding ShouldSync, Mode=TwoWay}" Width="80"/>
+                    <DataGridTextColumn Header="{DynamicResource Analysis.Path}" Binding="{Binding RelativePath}" Width="3*"/>
+                    <DataGridTextColumn Header="{DynamicResource Analysis.Direction}" Binding="{Binding DirectionLabel}" Width="90"/>
+                    <DataGridTextColumn Header="{DynamicResource Analysis.Reason}" Binding="{Binding Reason}" Width="2*"/>
+                    <DataGridTextColumn Header="{DynamicResource Analysis.SourceSize}" Binding="{Binding SourceSize}" Width="130"/>
+                    <DataGridTextColumn Header="{DynamicResource Analysis.DestSize}" Binding="{Binding DestSize}" Width="130"/>
+                    <DataGridTextColumn Header="{DynamicResource Analysis.SourceTime}" Binding="{Binding SourceLastWrite, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="160"/>
+                    <DataGridTextColumn Header="{DynamicResource Analysis.DestTime}" Binding="{Binding DestLastWrite, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="160"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <Border Background="#A6FFFFFF"
+                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ProgressBar Width="240"
+                                 Height="4"
+                                 IsIndeterminate="True"
+                                 Foreground="{DynamicResource PrimaryHueMidBrush}" />
+                    <TextBlock Text="{DynamicResource Analysis.Loading}"
+                               Margin="0,12,0,0"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource PrimaryTextBrush}"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Grid>
 
         <Grid Grid.Row="2" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>

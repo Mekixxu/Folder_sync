@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using FolderSync.Core.Config;
 using FolderSync.Core.Reporting;
 using FolderSync.Core.Sync;
@@ -47,12 +48,31 @@ namespace FolderSync.UI.ViewModels
         public ICommand ExecuteSelectedCommand { get; }
         public ICommand RefreshAnalysisCommand { get; }
         public ICommand SaveAnalysisCommand { get; }
+        private bool _isLoading;
         private bool _isExecuting;
         private bool _hasUnsavedChanges;
+        public bool IsLoading
+        {
+            get => _isLoading;
+            set
+            {
+                if (SetProperty(ref _isLoading, value))
+                {
+                    OnPropertyChanged(nameof(IsBusy));
+                }
+            }
+        }
+
         public bool IsExecuting
         {
             get => _isExecuting;
-            set => SetProperty(ref _isExecuting, value);
+            set
+            {
+                if (SetProperty(ref _isExecuting, value))
+                {
+                    OnPropertyChanged(nameof(IsBusy));
+                }
+            }
         }
 
         public bool HasUnsavedChanges
@@ -62,6 +82,7 @@ namespace FolderSync.UI.ViewModels
         }
 
         public string TaskTitle => $"分析结果 - {_task.TaskName}";
+        public bool IsBusy => IsLoading || IsExecuting;
         public int SelectedSyncFileCount => Items.Count(i => i.ShouldSync && !i.IsDirectory);
         public string TotalSyncSizeText => FormatBytes(Items
             .Where(i => i.ShouldSync && !i.IsDirectory)
@@ -72,21 +93,31 @@ namespace FolderSync.UI.ViewModels
             _task = task;
             _service = service ?? new TaskAnalysisService();
             _onSaved = onSaved;
-            ExecuteSelectedCommand = new RelayCommand(async _ => await ExecuteSelectedAsync(), _ => !IsExecuting);
-            RefreshAnalysisCommand = new RelayCommand(_ => RefreshAnalysis());
-            SaveAnalysisCommand = new RelayCommand(_ => SaveAnalysis());
-            LoadAnalysis(useSavedIfAvailable: true);
+            ExecuteSelectedCommand = new RelayCommand(async _ => await ExecuteSelectedAsync(), _ => !IsBusy && Items.Any(i => i.ShouldSync));
+            RefreshAnalysisCommand = new RelayCommand(async _ => await LoadAnalysisAsync(useSavedIfAvailable: false), _ => !IsBusy);
+            SaveAnalysisCommand = new RelayCommand(_ => SaveAnalysis(), _ => !IsBusy && Items.Count > 0);
+            _ = LoadAnalysisAsync(useSavedIfAvailable: true);
         }
 
-        private void LoadAnalysis(bool useSavedIfAvailable)
+        private async Task LoadAnalysisAsync(bool useSavedIfAvailable)
         {
+            if (IsLoading)
+            {
+                return;
+            }
+
             try
             {
-                Items.Clear();
-                var results = useSavedIfAvailable && _service.HasSavedAnalysis(_task)
-                    ? _service.GetSavedAnalysis(_task)
-                    : _service.AnalyzeAsync(_task).GetAwaiter().GetResult();
+                IsLoading = true;
+                CommandManager.InvalidateRequerySuggested();
+                var results = await Task.Run(async () =>
+                {
+                    return useSavedIfAvailable && _service.HasSavedAnalysis(_task)
+                        ? _service.GetSavedAnalysis(_task)
+                        : await _service.AnalyzeAsync(_task);
+                });
 
+                ClearItems();
                 foreach (var i in results)
                 {
                     var row = MapToRow(i);
@@ -100,11 +131,11 @@ namespace FolderSync.UI.ViewModels
             {
                 MessageBox.Show($"分析失败：{ex.Message}", "分析失败", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-        }
-
-        private void RefreshAnalysis()
-        {
-            LoadAnalysis(useSavedIfAvailable: false);
+            finally
+            {
+                IsLoading = false;
+                CommandManager.InvalidateRequerySuggested();
+            }
         }
 
         private void SaveAnalysis()
@@ -149,7 +180,7 @@ namespace FolderSync.UI.ViewModels
                     "执行完成",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
-                LoadAnalysis(useSavedIfAvailable: false);
+                await LoadAnalysisAsync(useSavedIfAvailable: false);
             }
             catch (Exception ex)
             {
@@ -160,6 +191,16 @@ namespace FolderSync.UI.ViewModels
                 IsExecuting = false;
                 CommandManager.InvalidateRequerySuggested();
             }
+        }
+
+        private void ClearItems()
+        {
+            foreach (var row in Items)
+            {
+                row.PropertyChanged -= OnRowPropertyChanged;
+            }
+
+            Items.Clear();
         }
 
         private static TaskAnalysisRowViewModel MapToRow(TaskAnalysisItem i)

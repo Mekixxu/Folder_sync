@@ -46,6 +46,7 @@
     <sys:String x:Key="Analysis.UnsavedChanges" xmlns:sys="clr-namespace:System;assembly=mscorlib">You have unsaved manual changes</sys:String>
     <sys:String x:Key="Analysis.SyncFileCount" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync File Count</sys:String>
     <sys:String x:Key="Analysis.TotalSyncSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">Total Sync Size</sys:String>
+    <sys:String x:Key="Analysis.Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">Analyzing, please wait...</sys:String>
 
     <sys:String x:Key="Common.Edit" xmlns:sys="clr-namespace:System;assembly=mscorlib">Edit</sys:String>
     <sys:String x:Key="Common.Delete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Delete</sys:String>
