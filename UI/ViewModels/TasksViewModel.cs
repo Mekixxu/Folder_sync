@@ -216,7 +216,7 @@ namespace FolderSync.UI.ViewModels
                 {
                     var current = selected[i];
                     AnalysisStatusText = $"正在分析 ({i + 1}/{selected.Count})：{current.Definition.TaskName}";
-                    var analysis = await _analysisService.AnalyzeAsync(current.Definition);
+                    var analysis = await AnalyzeTaskAsync(current.Definition);
                     _analysisService.SaveAnalysis(current.Definition, analysis);
                     MarkTaskAnalysisCompleted(current.TaskVm, true);
                     AnalysisProgressValue = i + 1;
@@ -252,7 +252,7 @@ namespace FolderSync.UI.ViewModels
                 {
                     var analysisItems = _analysisService.HasSavedAnalysis(task.Definition)
                         ? _analysisService.GetSavedAnalysis(task.Definition)
-                        : await _analysisService.AnalyzeAsync(task.Definition);
+                        : await AnalyzeTaskAsync(task.Definition);
 
                     if (!_analysisService.HasSavedAnalysis(task.Definition))
                     {
@@ -260,7 +260,7 @@ namespace FolderSync.UI.ViewModels
                     }
 
                     MarkTaskAnalysisCompleted(task.TaskVm, true);
-                    var report = await _analysisService.ExecuteSelectedAsync(task.Definition, analysisItems);
+                    var report = await ExecuteSelectedItemsAsync(task.Definition, analysisItems);
                     SyncReportFileWriter.Write(task.Definition.Id, task.Definition.TaskName, report);
                     reportCount++;
                 }
@@ -297,7 +297,7 @@ namespace FolderSync.UI.ViewModels
                 {
                     var current = selected[i];
                     AnalysisStatusText = $"正在分析 ({i + 1}/{selected.Count})：{current.Definition.TaskName}";
-                    var analysis = await _analysisService.AnalyzeAsync(current.Definition);
+                    var analysis = await AnalyzeTaskAsync(current.Definition);
                     _analysisService.SaveAnalysis(current.Definition, analysis);
                     MarkTaskAnalysisCompleted(current.TaskVm, true);
                     AnalysisProgressValue = i + 1;
@@ -308,7 +308,7 @@ namespace FolderSync.UI.ViewModels
                 foreach (var task in selected)
                 {
                     var analysisItems = _analysisService.GetSavedAnalysis(task.Definition);
-                    var report = await _analysisService.ExecuteSelectedAsync(task.Definition, analysisItems);
+                    var report = await ExecuteSelectedItemsAsync(task.Definition, analysisItems);
                     SyncReportFileWriter.Write(task.Definition.Id, task.Definition.TaskName, report);
                 }
 
@@ -340,6 +340,19 @@ namespace FolderSync.UI.ViewModels
             }
 
             return selected;
+        }
+
+        private Task<List<TaskAnalysisItem>> AnalyzeTaskAsync(SyncTaskDefinition definition)
+        {
+            return Task.Run(async () => await _analysisService.AnalyzeAsync(definition));
+        }
+
+        private Task<SyncReport> ExecuteSelectedItemsAsync(
+            SyncTaskDefinition definition,
+            IEnumerable<TaskAnalysisItem> analysisItems)
+        {
+            var items = analysisItems.ToList();
+            return Task.Run(async () => await _analysisService.ExecuteSelectedAsync(definition, items));
         }
 
         private SyncTaskDefinition? FindDefinition(string taskId)
