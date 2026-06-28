@@ -18,7 +18,23 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="{Binding TaskTitle}" Style="{StaticResource PageTitleTextStyle}" Margin="0,0,0,12" />
+        <StackPanel>
+            <TextBlock Text="{Binding TaskTitle}" Style="{StaticResource PageTitleTextStyle}" Margin="0,0,0,8" />
+            <WrapPanel Margin="0,0,0,12">
+                <Border Background="{StaticResource AppSurfaceAltBrush}" CornerRadius="6" Padding="10,6" Margin="0,0,10,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource Analysis.SyncFileCount}" Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding SelectedSyncFileCount}" FontWeight="SemiBold" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Background="{StaticResource AppSurfaceAltBrush}" CornerRadius="6" Padding="10,6">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource Analysis.TotalSyncSize}" Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding TotalSyncSizeText}" FontWeight="SemiBold" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Border>
+            </WrapPanel>
+        </StackPanel>
 
         <DataGrid Grid.Row="1"
                   ItemsSource="{Binding Items}"

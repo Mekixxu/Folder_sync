@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
@@ -53,6 +54,10 @@ namespace FolderSync.UI.ViewModels
         }
 
         public string TaskTitle => $"分析结果 - {_task.TaskName}";
+        public int SelectedSyncFileCount => Items.Count(i => i.ShouldSync && !i.IsDirectory);
+        public string TotalSyncSizeText => FormatBytes(Items
+            .Where(i => i.ShouldSync && !i.IsDirectory)
+            .Sum(i => i.SourceSize ?? 0L));
 
         public TaskAnalysisViewModel(SyncTaskDefinition task, TaskAnalysisService? service = null, Action? onSaved = null)
         {
@@ -81,6 +86,7 @@ namespace FolderSync.UI.ViewModels
                     Items.Add(row);
                 }
                 HasUnsavedChanges = false;
+                RaiseSummaryPropertiesChanged();
             }
             catch (Exception ex)
             {
@@ -172,7 +178,30 @@ namespace FolderSync.UI.ViewModels
             if (e.PropertyName == nameof(TaskAnalysisRowViewModel.ShouldSync))
             {
                 HasUnsavedChanges = true;
+                RaiseSummaryPropertiesChanged();
             }
+        }
+
+        private void RaiseSummaryPropertiesChanged()
+        {
+            OnPropertyChanged(nameof(SelectedSyncFileCount));
+            OnPropertyChanged(nameof(TotalSyncSizeText));
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            string[] units = { "B", "KB", "MB", "GB", "TB" };
+            double value = bytes;
+            var unitIndex = 0;
+
+            while (value >= 1024 && unitIndex < units.Length - 1)
+            {
+                value /= 1024;
+                unitIndex++;
+            }
+
+            var format = unitIndex == 0 ? "0" : "0.##";
+            return string.Format(CultureInfo.InvariantCulture, "{0:" + format + "} {1}", value, units[unitIndex]);
         }
     }
 }

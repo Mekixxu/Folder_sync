@@ -44,6 +44,8 @@
     <sys:String x:Key="Analysis.Save" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存</sys:String>
     <sys:String x:Key="Analysis.ExecuteSelected" xmlns:sys="clr-namespace:System;assembly=mscorlib">执行已勾选项</sys:String>
     <sys:String x:Key="Analysis.UnsavedChanges" xmlns:sys="clr-namespace:System;assembly=mscorlib">你有未保存的手动修改</sys:String>
+    <sys:String x:Key="Analysis.SyncFileCount" xmlns:sys="clr-namespace:System;assembly=mscorlib">待同步文件数</sys:String>
+    <sys:String x:Key="Analysis.TotalSyncSize" xmlns:sys="clr-namespace:System;assembly=mscorlib">总同步数据量</sys:String>
 
     <sys:String x:Key="Common.Edit" xmlns:sys="clr-namespace:System;assembly=mscorlib">编辑</sys:String>
     <sys:String x:Key="Common.Delete" xmlns:sys="clr-namespace:System;assembly=mscorlib">删除</sys:String>
