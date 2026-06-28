@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using Serilog;
 
@@ -14,6 +15,7 @@ namespace FolderSync.UI.ViewModels
     public class LogsViewModel : ViewModelBase
     {
         private readonly string _logDirectory;
+        private bool _isLoading;
 
         public ObservableCollection<LogFileItemViewModel> LogFiles { get; } = new();
 
@@ -36,6 +38,11 @@ namespace FolderSync.UI.ViewModels
         public string LogDirectory => _logDirectory;
         public string SelectedLogTitle => SelectedLogFile?.FileName ?? "请选择一个日志文件";
         public string SelectedLogPath => SelectedLogFile?.FullPath ?? Path.Combine(_logDirectory, "<日志文件名>");
+        public bool IsLoading
+        {
+            get => _isLoading;
+            private set => SetProperty(ref _isLoading, value);
+        }
 
         public ICommand RefreshCommand { get; }
         public ICommand OpenInEditorCommand { get; }
@@ -44,42 +51,67 @@ namespace FolderSync.UI.ViewModels
         {
             _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log");
             
-            RefreshCommand = new RelayCommand(_ => LoadLogFiles());
+            RefreshCommand = new RelayCommand(_ => _ = LoadLogFilesAsync(), _ => !IsLoading);
             OpenInEditorCommand = new RelayCommand(_ => OpenSelectedLogFile(), _ => IsLogSelected);
 
-            LoadLogFiles();
+            _ = LoadLogFilesAsync();
         }
 
-        private void LoadLogFiles()
+        private async Task LoadLogFilesAsync()
         {
-            LogFiles.Clear();
-            SelectedLogFile = null;
-
-            if (Directory.Exists(_logDirectory))
+            if (IsLoading)
             {
-                var files = Directory.EnumerateFiles(_logDirectory)
-                    .Where(f =>
-                    {
-                        var extension = Path.GetExtension(f);
-                        return string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(extension, ".log", StringComparison.OrdinalIgnoreCase);
-                    })
-                    .Select(f => new FileInfo(f))
-                    .Select(f => new LogFileItemViewModel
-                    {
-                        FileName = f.Name,
-                        FullPath = f.FullName,
-                        LastModified = f.LastWriteTime,
-                        Kind = DetectLogKind(f.FullName)
-                    })
-                    .OrderBy(f => f.KindPriority)
-                    .ThenByDescending(f => f.LastModified)
-                    .ToList();
+                return;
+            }
 
+            IsLoading = true;
+            CommandManager.InvalidateRequerySuggested();
+
+            try
+            {
+                SelectedLogFile = null;
+
+                var files = await Task.Run(() =>
+                {
+                    if (!Directory.Exists(_logDirectory))
+                    {
+                        return new LogFileItemViewModel[0];
+                    }
+
+                    return Directory.EnumerateFiles(_logDirectory)
+                        .Where(f =>
+                        {
+                            var extension = Path.GetExtension(f);
+                            return string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(extension, ".log", StringComparison.OrdinalIgnoreCase);
+                        })
+                        .Select(f => new FileInfo(f))
+                        .Select(f => new LogFileItemViewModel
+                        {
+                            FileName = f.Name,
+                            FullPath = f.FullName,
+                            LastModified = f.LastWriteTime,
+                            Kind = DetectLogKindByExtension(f.Extension)
+                        })
+                        .OrderBy(f => f.KindPriority)
+                        .ThenByDescending(f => f.LastModified)
+                        .ToArray();
+                });
+
+                LogFiles.Clear();
                 foreach (var file in files)
                 {
                     LogFiles.Add(file);
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to load log files from {LogDirectory}", _logDirectory);
+            }
+            finally
+            {
+                IsLoading = false;
+                CommandManager.InvalidateRequerySuggested();
             }
         }
 
@@ -103,21 +135,11 @@ namespace FolderSync.UI.ViewModels
             }
         }
 
-        private string DetectLogKind(string path)
+        private static string DetectLogKindByExtension(string extension)
         {
-            try
+            if (string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase))
             {
-                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                using var reader = new StreamReader(stream);
-                var firstLine = reader.ReadLine() ?? string.Empty;
-                if (firstLine.StartsWith("TaskName:", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "Report";
-                }
-            }
-            catch
-            {
-                // ignore read failures for classification
+                return "Report";
             }
 
             return "Runtime";

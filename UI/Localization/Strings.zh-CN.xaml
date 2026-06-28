@@ -64,4 +64,5 @@
     <sys:String x:Key="Logs.ContentHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">程序内不再提供日志内容预览。请选择文件后，在外部编辑器中自行打开。</sys:String>
     <sys:String x:Key="Logs.DirectoryLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">日志目录</sys:String>
     <sys:String x:Key="Logs.PathLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">当前选中文件</sys:String>
+    <sys:String x:Key="Logs.Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在后台加载日志文件...</sys:String>
 </ResourceDictionary>

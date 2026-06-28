@@ -43,7 +43,13 @@
                     </Grid.RowDefinitions>
                     
                     <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="14">
-                        <TextBlock Text="{DynamicResource Logs.History}" FontWeight="SemiBold"/>
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource Logs.History}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{DynamicResource Logs.Loading}"
+                                       Margin="0,6,0,0"
+                                       Foreground="{StaticResource SecondaryTextBrush}"
+                                       Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </StackPanel>
                     </Border>
                     
                     <ListBox Grid.Row="1" ItemsSource="{Binding LogFiles}" SelectedItem="{Binding SelectedLogFile}" Margin="5">

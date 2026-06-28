@@ -64,4 +64,5 @@
     <sys:String x:Key="Logs.ContentHint" xmlns:sys="clr-namespace:System;assembly=mscorlib">In-app log preview is removed. Select a file and open it in your external editor.</sys:String>
     <sys:String x:Key="Logs.DirectoryLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Log Directory</sys:String>
     <sys:String x:Key="Logs.PathLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Selected File</sys:String>
+    <sys:String x:Key="Logs.Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">Loading log files in background...</sys:String>
 </ResourceDictionary>
