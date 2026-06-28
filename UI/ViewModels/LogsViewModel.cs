@@ -50,6 +50,7 @@ namespace FolderSync.UI.ViewModels
         public LogsViewModel()
         {
             _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log");
+            Directory.CreateDirectory(_logDirectory);
             
             RefreshCommand = new RelayCommand(_ => _ = LoadLogFilesAsync(), _ => !IsLoading);
             OpenInEditorCommand = new RelayCommand(_ => OpenSelectedLogFile(), _ => IsLogSelected);
@@ -73,10 +74,7 @@ namespace FolderSync.UI.ViewModels
 
                 var files = await Task.Run(() =>
                 {
-                    if (!Directory.Exists(_logDirectory))
-                    {
-                        return new LogFileItemViewModel[0];
-                    }
+                    Directory.CreateDirectory(_logDirectory);
 
                     return Directory.EnumerateFiles(_logDirectory)
                         .Where(f =>

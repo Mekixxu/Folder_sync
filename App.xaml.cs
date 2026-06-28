@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using FolderSync.Core.Config;
 using FolderSync.Core.Scheduler;
 using FolderSync.UI.Localization;
@@ -24,6 +26,7 @@ namespace FolderSync
 
             // 1. 初始化 Serilog 日志记录器
             InitializeLogging();
+            RegisterGlobalExceptionHandlers();
 
             Log.Information("================================================");
             Log.Information("FolderSync Application Starting...");
@@ -108,6 +111,48 @@ namespace FolderSync
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
                 )
                 .CreateLogger();
+        }
+
+        private void RegisterGlobalExceptionHandlers()
+        {
+            DispatcherUnhandledException += OnDispatcherUnhandledException;
+            AppDomain.CurrentDomain.UnhandledException += OnCurrentDomainUnhandledException;
+            TaskScheduler.UnobservedTaskException += OnTaskSchedulerUnobservedTaskException;
+        }
+
+        private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            Log.Fatal(e.Exception, "Unhandled dispatcher exception.");
+            Log.CloseAndFlush();
+
+            MessageBox.Show(
+                $"程序捕获到未处理异常：{e.Exception.Message}\n\n详细信息已写入 log 文件夹，请将最新 .log 文件提供出来。",
+                "未处理异常",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+
+            e.Handled = true;
+        }
+
+        private static void OnCurrentDomainUnhandledException(object? sender, UnhandledExceptionEventArgs e)
+        {
+            if (e.ExceptionObject is Exception ex)
+            {
+                Log.Fatal(ex, "Unhandled AppDomain exception. IsTerminating={IsTerminating}", e.IsTerminating);
+            }
+            else
+            {
+                Log.Fatal("Unhandled AppDomain exception. IsTerminating={IsTerminating}, ExceptionObject={ExceptionObject}", e.IsTerminating, e.ExceptionObject);
+            }
+
+            Log.CloseAndFlush();
+        }
+
+        private static void OnTaskSchedulerUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            Log.Fatal(e.Exception, "Unobserved task exception.");
+            Log.CloseAndFlush();
+            e.SetObserved();
         }
 
         private void ApplyDisplaySettings()
