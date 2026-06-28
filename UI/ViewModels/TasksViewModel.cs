@@ -115,6 +115,11 @@ namespace FolderSync.UI.ViewModels
                 return;
             }
 
+            OpenTaskAnalysisWindow(taskVm, def);
+        }
+
+        private void OpenTaskAnalysisWindow(TaskListItemViewModel taskVm, SyncTaskDefinition def)
+        {
             var vm = new TaskAnalysisViewModel(def, _analysisService, () => MarkTaskAnalysisCompleted(taskVm, true));
             var window = new TaskAnalysisWindow
             {
@@ -222,7 +227,15 @@ namespace FolderSync.UI.ViewModels
                     AnalysisProgressValue = i + 1;
                 }
 
-                AnalysisStatusText = $"分析完成，共 {selected.Count} 个任务。";
+                AnalysisStatusText = selected.Count == 1
+                    ? "分析完成，已打开文件列表。"
+                    : $"分析完成，共 {selected.Count} 个任务。点击任务左侧状态图标查看文件列表。";
+                CommandManager.InvalidateRequerySuggested();
+
+                if (selected.Count == 1)
+                {
+                    OpenTaskAnalysisWindow(selected[0].TaskVm, selected[0].Definition);
+                }
             }
             catch (Exception ex)
             {
