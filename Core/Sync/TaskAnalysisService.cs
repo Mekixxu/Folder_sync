@@ -167,116 +167,124 @@ namespace FolderSync.Core.Sync
             IEnumerable<TaskAnalysisItem> selectedItems,
             CancellationToken cancellationToken = default)
         {
-            var sourceFs = SyncTaskFactory.CreateSourceFileSystem(task);
-            var destFs = SyncTaskFactory.CreateDestFileSystem(task);
-            await sourceFs.ConnectAsync(cancellationToken);
-            await destFs.ConnectAsync(cancellationToken);
-            var isSendOnce = task.SyncMode == SyncMode.OneWaySendOnce;
-            var stateStore = isSendOnce ? new OneWayDeliveryStateStore() : null;
-            Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null;
-            if (stateStore != null)
-            {
-                await stateStore.InitializeAsync(cancellationToken);
-                deliveredRecords = await stateStore.LoadAsync(task.Id, cancellationToken);
-            }
-
+            using var sourceFs = SyncTaskFactory.CreateSourceFileSystem(task);
+            using var destFs = SyncTaskFactory.CreateDestFileSystem(task);
             var report = new SyncReport
             {
                 StartTime = DateTime.UtcNow,
                 SyncMode = task.SyncMode
             };
 
-            var list = selectedItems.Where(i => i.ShouldSync).ToList();
-            report.TotalActions = list.Count;
-
-            foreach (var item in list)
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                try
+                await sourceFs.ConnectAsync(cancellationToken);
+                await destFs.ConnectAsync(cancellationToken);
+                var isSendOnce = task.SyncMode == SyncMode.OneWaySendOnce;
+                var stateStore = isSendOnce ? new OneWayDeliveryStateStore() : null;
+                Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null;
+                if (stateStore != null)
                 {
-                    if (isSendOnce && deliveredRecords != null && deliveredRecords.TryGetValue(item.RelativePath, out var deliveredRecord))
+                    await stateStore.InitializeAsync(cancellationToken);
+                    deliveredRecords = await stateStore.LoadAsync(task.Id, cancellationToken);
+                }
+
+                var list = selectedItems.Where(i => i.ShouldSync).ToList();
+                report.TotalActions = list.Count;
+
+                foreach (var item in list)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    try
                     {
-                        report.SkippedAlreadyDelivered++;
-                        var currentSource = await sourceFs.GetFileInfoAsync(item.RelativePath, cancellationToken);
-                        if (currentSource != null && await OneWayDeliverySupport.HasSourceChangedAsync(deliveredRecord, currentSource, sourceFs, cancellationToken))
+                        if (isSendOnce && deliveredRecords != null && deliveredRecords.TryGetValue(item.RelativePath, out var deliveredRecord))
+                        {
+                            report.SkippedAlreadyDelivered++;
+                            var currentSource = await sourceFs.GetFileInfoAsync(item.RelativePath, cancellationToken);
+                            if (currentSource != null && await OneWayDeliverySupport.HasSourceChangedAsync(deliveredRecord, currentSource, sourceFs, cancellationToken))
+                            {
+                                report.WarningDetails.Add(new SyncWarningDetail
+                                {
+                                    ItemPath = item.RelativePath,
+                                    Context = "Source changed after first successful delivery",
+                                    Message = "该路径已完成一次性同步，检测到源文件内容变化，已按一次性规则跳过。"
+                                });
+                            }
+                            continue;
+                        }
+
+                        if (item.ActionType == SyncActionType.Delete)
+                        {
+                            if (item.Direction == AnalysisDirection.AToB)
+                            {
+                                if (item.IsDirectory) await destFs.DeleteDirectoryAsync(item.RelativePath, cancellationToken);
+                                else await destFs.DeleteFileAsync(item.RelativePath, cancellationToken);
+                            }
+                            else if (item.Direction == AnalysisDirection.BToA)
+                            {
+                                if (item.IsDirectory) await sourceFs.DeleteDirectoryAsync(item.RelativePath, cancellationToken);
+                                else await sourceFs.DeleteFileAsync(item.RelativePath, cancellationToken);
+                            }
+                            report.DeletedFiles++;
+                            continue;
+                        }
+
+                        if (isSendOnce && item.Direction != AnalysisDirection.AToB)
                         {
                             report.WarningDetails.Add(new SyncWarningDetail
                             {
                                 ItemPath = item.RelativePath,
-                                Context = "Source changed after first successful delivery",
-                                Message = "该路径已完成一次性同步，检测到源文件内容变化，已按一次性规则跳过。"
+                                Context = "Invalid manual selection for send-once mode",
+                                Message = "单向一次性同步仅支持 A -> B 的首次投递，该项已跳过。"
                             });
+                            continue;
                         }
-                        continue;
-                    }
 
-                    if (item.ActionType == SyncActionType.Delete)
-                    {
                         if (item.Direction == AnalysisDirection.AToB)
-                        {
-                            if (item.IsDirectory) await destFs.DeleteDirectoryAsync(item.RelativePath, cancellationToken);
-                            else await destFs.DeleteFileAsync(item.RelativePath, cancellationToken);
-                        }
-                        else if (item.Direction == AnalysisDirection.BToA)
-                        {
-                            if (item.IsDirectory) await sourceFs.DeleteDirectoryAsync(item.RelativePath, cancellationToken);
-                            else await sourceFs.DeleteFileAsync(item.RelativePath, cancellationToken);
-                        }
-                        report.DeletedFiles++;
-                        continue;
-                    }
-
-                    if (isSendOnce && item.Direction != AnalysisDirection.AToB)
-                    {
-                        report.WarningDetails.Add(new SyncWarningDetail
-                        {
-                            ItemPath = item.RelativePath,
-                            Context = "Invalid manual selection for send-once mode",
-                            Message = "单向一次性同步仅支持 A -> B 的首次投递，该项已跳过。"
-                        });
-                        continue;
-                    }
-
-                    // Create / Update / 手动开启
-                    if (item.Direction == AnalysisDirection.AToB)
-                    {
-                        await CopyPathAsync(sourceFs, destFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
-                    }
-                    else if (item.Direction == AnalysisDirection.BToA)
-                    {
-                        await CopyPathAsync(destFs, sourceFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
-                    }
-                    else
-                    {
-                        // 无方向但勾选同步时：按更新时间较新的一端覆盖另一端
-                        var sourceNewer = (item.SourceLastWrite ?? DateTime.MinValue) >= (item.DestLastWrite ?? DateTime.MinValue);
-                        if (sourceNewer)
                         {
                             await CopyPathAsync(sourceFs, destFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
                         }
-                        else
+                        else if (item.Direction == AnalysisDirection.BToA)
                         {
                             await CopyPathAsync(destFs, sourceFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
                         }
-                    }
+                        else
+                        {
+                            var sourceNewer = (item.SourceLastWrite ?? DateTime.MinValue) >= (item.DestLastWrite ?? DateTime.MinValue);
+                            if (sourceNewer)
+                            {
+                                await CopyPathAsync(sourceFs, destFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
+                            }
+                            else
+                            {
+                                await CopyPathAsync(destFs, sourceFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
+                            }
+                        }
 
-                    if (item.ActionType == SyncActionType.Create) report.CreatedFiles++;
-                    else report.UpdatedFiles++;
-                }
-                catch (Exception ex)
-                {
-                    report.FailedFiles++;
-                    report.ErrorDetails.Add(new SyncErrorDetail
+                        if (item.ActionType == SyncActionType.Create) report.CreatedFiles++;
+                        else report.UpdatedFiles++;
+                    }
+                    catch (OperationCanceledException)
                     {
-                        ItemPath = item.RelativePath,
-                        Context = "Manual selected execution failed",
-                        ErrorType = ex.GetType().FullName ?? "Exception",
-                        Message = ex.Message
-                    });
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        report.FailedFiles++;
+                        report.ErrorDetails.Add(new SyncErrorDetail
+                        {
+                            ItemPath = item.RelativePath,
+                            Context = "Manual selected execution failed",
+                            ErrorType = ex.GetType().FullName ?? "Exception",
+                            Message = ex.Message
+                        });
+                    }
                 }
             }
+            finally
+            {
+                report.EndTime = DateTime.UtcNow;
+            }
 
-            report.EndTime = DateTime.UtcNow;
             return report;
         }
 
@@ -325,9 +333,7 @@ namespace FolderSync.Core.Sync
                 return;
             }
 
-            using var r = await from.OpenReadForCopyAsync(path, cancellationToken);
-            using var w = await to.OpenWriteAsync(path, cancellationToken);
-            await r.CopyToAsync(w, 81920, cancellationToken);
+            await OneWayDeliverySupport.CopyFileAsync(from, to, path, cancellationToken);
         }
 
         private static AnalysisDirection ResolveDirection(SyncMode mode, SyncAction act, FileItem? s, FileItem? d)

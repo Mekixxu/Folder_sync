@@ -69,17 +69,30 @@
             </DataGrid>
 
             <Border Background="#A6FFFFFF"
-                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                     <ProgressBar Width="240"
                                  Height="4"
                                  IsIndeterminate="True"
                                  Foreground="{DynamicResource PrimaryHueMidBrush}" />
-                    <TextBlock Text="{DynamicResource Analysis.Loading}"
-                               Margin="0,12,0,0"
+                    <TextBlock Margin="0,12,0,0"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource PrimaryTextBrush}"
-                               HorizontalAlignment="Center" />
+                               HorizontalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="{DynamicResource Analysis.Loading}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsExecuting}" Value="True">
+                                        <Setter Property="Text" Value="{DynamicResource Analysis.Executing}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsStopRequested}" Value="True">
+                                        <Setter Property="Text" Value="{DynamicResource Analysis.Stopping}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </Border>
         </Grid>
@@ -97,6 +110,7 @@
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="{DynamicResource Analysis.Refresh}" Command="{Binding RefreshAnalysisCommand}" Style="{StaticResource SecondaryActionButtonStyle}"/>
             <Button Content="{DynamicResource Analysis.Save}" Command="{Binding SaveAnalysisCommand}" Style="{StaticResource SecondaryActionButtonStyle}"/>
+            <Button Content="{DynamicResource Common.Stop}" Command="{Binding StopCurrentOperationCommand}" Style="{StaticResource SecondaryActionButtonStyle}"/>
             <Button Content="{DynamicResource Analysis.ExecuteSelected}" Command="{Binding ExecuteSelectedCommand}" Style="{StaticResource PrimaryActionButtonStyle}" Margin="0"/>
         </StackPanel>
         </Grid>

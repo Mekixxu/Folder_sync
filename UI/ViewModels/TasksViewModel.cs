@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -26,11 +27,13 @@ namespace FolderSync.UI.ViewModels
         private readonly TaskAnalysisService _analysisService;
         private readonly OneWayDeliveryStateStore _deliveryStateStore = new();
         private readonly ObservableCollection<SyncTaskDefinition> _definitions = new();
+        private CancellationTokenSource? _currentOperationCts;
         private bool _isBusy;
         private bool _isAnalysisProgressVisible;
         private double _analysisProgressValue;
         private double _analysisProgressMaximum = 1;
         private string _analysisStatusText = "未开始分析";
+        private string _currentOperationDisplayName = string.Empty;
 
         public ObservableCollection<TaskListItemViewModel> Tasks { get; } = new();
 
@@ -38,6 +41,7 @@ namespace FolderSync.UI.ViewModels
         public ICommand AnalyzeSelectedTasksCommand { get; }
         public ICommand ExecuteSelectedTasksCommand { get; }
         public ICommand SyncSelectedTasksCommand { get; }
+        public ICommand StopCurrentOperationCommand { get; }
         public ICommand OpenTaskAnalysisCommand { get; }
         public ICommand EditTaskCommand { get; }
         public ICommand DeleteTaskCommand { get; }
@@ -76,6 +80,7 @@ namespace FolderSync.UI.ViewModels
             AnalyzeSelectedTasksCommand = new RelayCommand(_ => _ = AnalyzeSelectedTasksAsync(), _ => CanRunBulkActions());
             ExecuteSelectedTasksCommand = new RelayCommand(_ => _ = ExecuteSelectedTasksAsync(), _ => CanRunBulkActions());
             SyncSelectedTasksCommand = new RelayCommand(_ => _ = SyncSelectedTasksAsync(), _ => CanRunBulkActions());
+            StopCurrentOperationCommand = new RelayCommand(_ => StopCurrentOperation(), _ => CanStopCurrentOperation());
             OpenTaskAnalysisCommand = new RelayCommand(OpenTaskAnalysis, CanOpenTaskAnalysis);
             EditTaskCommand = new RelayCommand(EditTask);
             DeleteTaskCommand = new RelayCommand(DeleteTask);
@@ -95,6 +100,11 @@ namespace FolderSync.UI.ViewModels
         private bool CanRunBulkActions()
         {
             return !_isBusy && Tasks.Any(t => t.IsSelected);
+        }
+
+        private bool CanStopCurrentOperation()
+        {
+            return _isBusy && _currentOperationCts != null && !_currentOperationCts.IsCancellationRequested;
         }
 
         private bool CanOpenTaskAnalysis(object? parameter)
@@ -212,17 +222,20 @@ namespace FolderSync.UI.ViewModels
             }
 
             _isBusy = true;
+            using var operationCts = BeginOperation("分析");
             try
             {
+                var token = operationCts.Token;
                 IsAnalysisProgressVisible = true;
                 AnalysisProgressMaximum = selected.Count;
                 AnalysisProgressValue = 0;
 
                 for (var i = 0; i < selected.Count; i++)
                 {
+                    token.ThrowIfCancellationRequested();
                     var current = selected[i];
                     AnalysisStatusText = $"正在分析 ({i + 1}/{selected.Count})：{current.Definition.TaskName}";
-                    var analysis = await AnalyzeTaskAsync(current.Definition);
+                    var analysis = await AnalyzeTaskAsync(current.Definition, token);
                     _analysisService.SaveAnalysis(current.Definition, analysis);
                     MarkTaskAnalysisCompleted(current.TaskVm, true);
                     AnalysisProgressValue = i + 1;
@@ -238,6 +251,11 @@ namespace FolderSync.UI.ViewModels
                     OpenTaskAnalysisWindow(selected[0].TaskVm, selected[0].Definition);
                 }
             }
+            catch (OperationCanceledException)
+            {
+                AnalysisStatusText = "分析已停止。";
+                MessageBox.Show("分析已停止。", "已停止", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
             catch (Exception ex)
             {
                 AnalysisStatusText = "分析失败";
@@ -246,6 +264,8 @@ namespace FolderSync.UI.ViewModels
             finally
             {
                 _isBusy = false;
+                EndOperation();
+                IsAnalysisProgressVisible = false;
                 CommandManager.InvalidateRequerySuggested();
             }
         }
@@ -259,15 +279,23 @@ namespace FolderSync.UI.ViewModels
             }
 
             _isBusy = true;
+            using var operationCts = BeginOperation("执行");
             try
             {
+                var token = operationCts.Token;
+                IsAnalysisProgressVisible = true;
+                AnalysisProgressMaximum = selected.Count;
+                AnalysisProgressValue = 0;
                 var reportCount = 0;
                 var reportFileNames = new List<string>();
-                foreach (var task in selected)
+                for (var i = 0; i < selected.Count; i++)
                 {
+                    token.ThrowIfCancellationRequested();
+                    var task = selected[i];
+                    AnalysisStatusText = $"正在执行 ({i + 1}/{selected.Count})：{task.Definition.TaskName}";
                     var analysisItems = _analysisService.HasSavedAnalysis(task.Definition)
                         ? _analysisService.GetSavedAnalysis(task.Definition)
-                        : await AnalyzeTaskAsync(task.Definition);
+                        : await AnalyzeTaskAsync(task.Definition, token);
 
                     if (!_analysisService.HasSavedAnalysis(task.Definition))
                     {
@@ -275,13 +303,20 @@ namespace FolderSync.UI.ViewModels
                     }
 
                     MarkTaskAnalysisCompleted(task.TaskVm, true);
-                    var report = await ExecuteSelectedItemsAsync(task.Definition, analysisItems);
+                    var report = await ExecuteSelectedItemsAsync(task.Definition, analysisItems, token);
                     var reportPath = SyncReportFileWriter.Write(task.Definition.Id, task.Definition.TaskName, report);
                     reportFileNames.Add(Path.GetFileName(reportPath));
                     reportCount++;
+                    AnalysisProgressValue = i + 1;
                 }
 
+                AnalysisStatusText = $"批量执行完成，共处理 {reportCount} 个任务。";
                 MessageBox.Show(BuildReportSummaryMessage($"批量执行完成，共处理 {reportCount} 个任务。", reportFileNames), "执行完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (OperationCanceledException)
+            {
+                AnalysisStatusText = "执行已停止。";
+                MessageBox.Show("执行已停止。若停止时正在传输文件，未完成的目标文件已删除。", "已停止", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -290,6 +325,8 @@ namespace FolderSync.UI.ViewModels
             finally
             {
                 _isBusy = false;
+                EndOperation();
+                IsAnalysisProgressVisible = false;
                 CommandManager.InvalidateRequerySuggested();
             }
         }
@@ -303,8 +340,10 @@ namespace FolderSync.UI.ViewModels
             }
 
             _isBusy = true;
+            using var operationCts = BeginOperation("同步");
             try
             {
+                var token = operationCts.Token;
                 IsAnalysisProgressVisible = true;
                 AnalysisProgressMaximum = selected.Count;
                 AnalysisProgressValue = 0;
@@ -312,9 +351,10 @@ namespace FolderSync.UI.ViewModels
 
                 for (var i = 0; i < selected.Count; i++)
                 {
+                    token.ThrowIfCancellationRequested();
                     var current = selected[i];
                     AnalysisStatusText = $"正在分析 ({i + 1}/{selected.Count})：{current.Definition.TaskName}";
-                    var analysis = await AnalyzeTaskAsync(current.Definition);
+                    var analysis = await AnalyzeTaskAsync(current.Definition, token);
                     _analysisService.SaveAnalysis(current.Definition, analysis);
                     MarkTaskAnalysisCompleted(current.TaskVm, true);
                     AnalysisProgressValue = i + 1;
@@ -322,16 +362,25 @@ namespace FolderSync.UI.ViewModels
 
                 AnalysisStatusText = "分析完成，开始执行同步...";
 
-                foreach (var task in selected)
+                for (var i = 0; i < selected.Count; i++)
                 {
+                    token.ThrowIfCancellationRequested();
+                    var task = selected[i];
+                    AnalysisStatusText = $"正在同步 ({i + 1}/{selected.Count})：{task.Definition.TaskName}";
                     var analysisItems = _analysisService.GetSavedAnalysis(task.Definition);
-                    var report = await ExecuteSelectedItemsAsync(task.Definition, analysisItems);
+                    var report = await ExecuteSelectedItemsAsync(task.Definition, analysisItems, token);
                     var reportPath = SyncReportFileWriter.Write(task.Definition.Id, task.Definition.TaskName, report);
                     reportFileNames.Add(Path.GetFileName(reportPath));
+                    AnalysisProgressValue = i + 1;
                 }
 
                 AnalysisStatusText = $"同步完成，共处理 {selected.Count} 个任务。";
                 MessageBox.Show(BuildReportSummaryMessage(AnalysisStatusText, reportFileNames), "同步完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (OperationCanceledException)
+            {
+                AnalysisStatusText = "同步已停止。";
+                MessageBox.Show("同步已停止。若停止时正在传输文件，未完成的目标文件已删除。", "已停止", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -341,6 +390,8 @@ namespace FolderSync.UI.ViewModels
             finally
             {
                 _isBusy = false;
+                EndOperation();
+                IsAnalysisProgressVisible = false;
                 CommandManager.InvalidateRequerySuggested();
             }
         }
@@ -360,17 +411,49 @@ namespace FolderSync.UI.ViewModels
             return selected;
         }
 
-        private Task<List<TaskAnalysisItem>> AnalyzeTaskAsync(SyncTaskDefinition definition)
+        private Task<List<TaskAnalysisItem>> AnalyzeTaskAsync(SyncTaskDefinition definition, CancellationToken cancellationToken)
         {
-            return Task.Run(async () => await _analysisService.AnalyzeAsync(definition));
+            return Task.Run(async () => await _analysisService.AnalyzeAsync(definition, cancellationToken), cancellationToken);
         }
 
         private Task<SyncReport> ExecuteSelectedItemsAsync(
             SyncTaskDefinition definition,
-            IEnumerable<TaskAnalysisItem> analysisItems)
+            IEnumerable<TaskAnalysisItem> analysisItems,
+            CancellationToken cancellationToken)
         {
             var items = analysisItems.ToList();
-            return Task.Run(async () => await _analysisService.ExecuteSelectedAsync(definition, items));
+            return Task.Run(async () => await _analysisService.ExecuteSelectedAsync(definition, items, cancellationToken), cancellationToken);
+        }
+
+        private CancellationTokenSource BeginOperation(string operationDisplayName)
+        {
+            EndOperation();
+            _currentOperationDisplayName = operationDisplayName;
+            _currentOperationCts = new CancellationTokenSource();
+            CommandManager.InvalidateRequerySuggested();
+            return _currentOperationCts;
+        }
+
+        private void EndOperation()
+        {
+            _currentOperationCts?.Dispose();
+            _currentOperationCts = null;
+            _currentOperationDisplayName = string.Empty;
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        private void StopCurrentOperation()
+        {
+            if (_currentOperationCts == null || _currentOperationCts.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _currentOperationCts.Cancel();
+            AnalysisStatusText = string.IsNullOrWhiteSpace(_currentOperationDisplayName)
+                ? "正在停止当前操作..."
+                : $"正在停止{_currentOperationDisplayName}...";
+            CommandManager.InvalidateRequerySuggested();
         }
 
         private SyncTaskDefinition? FindDefinition(string taskId)

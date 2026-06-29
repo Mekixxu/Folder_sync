@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.ComponentModel;
+using System.Threading;
 using System.Threading.Tasks;
 using FolderSync.Core.Config;
 using FolderSync.Core.Reporting;
@@ -48,6 +49,8 @@ namespace FolderSync.UI.ViewModels
         public ICommand ExecuteSelectedCommand { get; }
         public ICommand RefreshAnalysisCommand { get; }
         public ICommand SaveAnalysisCommand { get; }
+        public ICommand StopCurrentOperationCommand { get; }
+        private CancellationTokenSource? _currentOperationCts;
         private bool _isLoading;
         private bool _isExecuting;
         private bool _hasUnsavedChanges;
@@ -83,6 +86,7 @@ namespace FolderSync.UI.ViewModels
 
         public string TaskTitle => $"分析结果 - {_task.TaskName}";
         public bool IsBusy => IsLoading || IsExecuting;
+        public bool IsStopRequested => _currentOperationCts?.IsCancellationRequested == true;
         public int SelectedSyncFileCount => Items.Count(i => i.ShouldSync && !i.IsDirectory);
         public string TotalSyncSizeText => FormatBytes(Items
             .Where(i => i.ShouldSync && !i.IsDirectory)
@@ -96,6 +100,7 @@ namespace FolderSync.UI.ViewModels
             ExecuteSelectedCommand = new RelayCommand(async _ => await ExecuteSelectedAsync(), _ => !IsBusy && Items.Any(i => i.ShouldSync));
             RefreshAnalysisCommand = new RelayCommand(async _ => await LoadAnalysisAsync(useSavedIfAvailable: false), _ => !IsBusy);
             SaveAnalysisCommand = new RelayCommand(_ => SaveAnalysis(), _ => !IsBusy && Items.Count > 0);
+            StopCurrentOperationCommand = new RelayCommand(_ => StopCurrentOperation(), _ => IsBusy && !IsStopRequested);
             _ = LoadAnalysisAsync(useSavedIfAvailable: true);
         }
 
@@ -108,14 +113,16 @@ namespace FolderSync.UI.ViewModels
 
             try
             {
+                using var operationCts = BeginOperation();
                 IsLoading = true;
                 CommandManager.InvalidateRequerySuggested();
+                var token = operationCts.Token;
                 var results = await Task.Run(async () =>
                 {
                     return useSavedIfAvailable && _service.HasSavedAnalysis(_task)
                         ? _service.GetSavedAnalysis(_task)
-                        : await _service.AnalyzeAsync(_task);
-                });
+                        : await _service.AnalyzeAsync(_task, token);
+                }, token);
 
                 ClearItems();
                 foreach (var i in results)
@@ -127,6 +134,10 @@ namespace FolderSync.UI.ViewModels
                 HasUnsavedChanges = false;
                 RaiseSummaryPropertiesChanged();
             }
+            catch (OperationCanceledException)
+            {
+                // 用户主动停止时保持当前列表不变。
+            }
             catch (Exception ex)
             {
                 MessageBox.Show($"分析失败：{ex.Message}", "分析失败", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -134,6 +145,7 @@ namespace FolderSync.UI.ViewModels
             finally
             {
                 IsLoading = false;
+                EndOperation();
                 CommandManager.InvalidateRequerySuggested();
             }
         }
@@ -162,16 +174,18 @@ namespace FolderSync.UI.ViewModels
 
             try
             {
+                using var operationCts = BeginOperation();
                 IsExecuting = true;
                 CommandManager.InvalidateRequerySuggested();
                 var selected = BuildAnalysisItemsFromRows();
+                var token = operationCts.Token;
                 var executionResult = await Task.Run(async () =>
                 {
-                    var report = await _service.ExecuteSelectedAsync(_task, selected);
+                    var report = await _service.ExecuteSelectedAsync(_task, selected, token);
                     var reportPath = SyncReportFileWriter.Write(_task.Id, _task.TaskName, report);
                     _service.SaveAnalysis(_task, selected);
                     return (report, reportPath);
-                });
+                }, token);
 
                 _onSaved?.Invoke();
                 HasUnsavedChanges = false;
@@ -182,6 +196,14 @@ namespace FolderSync.UI.ViewModels
                     MessageBoxImage.Information);
                 await LoadAnalysisAsync(useSavedIfAvailable: false);
             }
+            catch (OperationCanceledException)
+            {
+                MessageBox.Show(
+                    "同步已停止。若停止时正在传输文件，未完成的目标文件已删除。",
+                    "已停止",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
             catch (Exception ex)
             {
                 MessageBox.Show($"执行失败：{ex.Message}", "执行失败", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -189,8 +211,36 @@ namespace FolderSync.UI.ViewModels
             finally
             {
                 IsExecuting = false;
+                EndOperation();
                 CommandManager.InvalidateRequerySuggested();
             }
+        }
+
+        private CancellationTokenSource BeginOperation()
+        {
+            EndOperation();
+            _currentOperationCts = new CancellationTokenSource();
+            OnPropertyChanged(nameof(IsStopRequested));
+            return _currentOperationCts;
+        }
+
+        private void EndOperation()
+        {
+            _currentOperationCts?.Dispose();
+            _currentOperationCts = null;
+            OnPropertyChanged(nameof(IsStopRequested));
+        }
+
+        private void StopCurrentOperation()
+        {
+            if (_currentOperationCts == null || _currentOperationCts.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _currentOperationCts.Cancel();
+            OnPropertyChanged(nameof(IsStopRequested));
+            CommandManager.InvalidateRequerySuggested();
         }
 
         private void ClearItems()

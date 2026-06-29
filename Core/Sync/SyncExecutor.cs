@@ -64,6 +64,10 @@ namespace FolderSync.Core.Sync
                     await ExecuteOneWayAsync(report, cancellationToken);
                 }
             }
+            catch (OperationCanceledException)
+            {
+                report.ErrorMessage = "同步已停止。";
+            }
             catch (Exception ex)
             {
                 report.ErrorMessage = ex.Message;
@@ -333,6 +337,10 @@ namespace FolderSync.Core.Sync
                             break;
                     }
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     report.FailedFiles++;
@@ -459,6 +467,10 @@ namespace FolderSync.Core.Sync
                             break;
                     }
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     report.FailedFiles++;
@@ -478,9 +490,7 @@ namespace FolderSync.Core.Sync
 
         private static async Task CopyFileAsync(IFileSystem fromFs, IFileSystem toFs, string path, CancellationToken cancellationToken)
         {
-            using var readStream = await fromFs.OpenReadForCopyAsync(path, cancellationToken);
-            using var writeStream = await toFs.OpenWriteAsync(path, cancellationToken);
-            await readStream.CopyToAsync(writeStream, 81920, cancellationToken);
+            await OneWayDeliverySupport.CopyFileAsync(fromFs, toFs, path, cancellationToken);
         }
 
         private enum TwoWayOpKind

@@ -57,6 +57,9 @@
                     <Button Content="{DynamicResource Tasks.Execute}"
                         Command="{Binding ExecuteSelectedTasksCommand}"
                         Style="{StaticResource SecondaryActionButtonStyle}"/>
+                    <Button Content="{DynamicResource Common.Stop}"
+                        Command="{Binding StopCurrentOperationCommand}"
+                        Style="{StaticResource SecondaryActionButtonStyle}"/>
                     <Button Content="{DynamicResource Tasks.Sync}"
                         Command="{Binding SyncSelectedTasksCommand}"
                         Style="{StaticResource PrimaryActionButtonStyle}" Margin="0"/>

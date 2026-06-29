@@ -223,20 +223,60 @@ namespace FolderSync.Core.Sync
             string path,
             CancellationToken cancellationToken = default)
         {
-            using var readStream = await fromFs.OpenReadForCopyAsync(path, cancellationToken);
-            using var writeStream = await toFs.OpenWriteAsync(path, cancellationToken);
-
-            var hasher = new XxHash64();
-            var buffer = new byte[81920];
-            int read;
-            while ((read = await readStream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
+            try
             {
-                hasher.Append(buffer.AsSpan(0, read));
-                await writeStream.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-            }
+                using var readStream = await fromFs.OpenReadForCopyAsync(path, cancellationToken);
+                using var writeStream = await toFs.OpenWriteAsync(path, cancellationToken);
 
-            await writeStream.FlushAsync(cancellationToken);
-            return Convert.ToHexString(hasher.GetCurrentHash());
+                var hasher = new XxHash64();
+                var buffer = new byte[81920];
+                int read;
+                while ((read = await readStream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
+                {
+                    hasher.Append(buffer.AsSpan(0, read));
+                    await writeStream.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                }
+
+                await writeStream.FlushAsync(cancellationToken);
+                return Convert.ToHexString(hasher.GetCurrentHash());
+            }
+            catch (OperationCanceledException)
+            {
+                await TryDeleteIncompleteTargetAsync(toFs, path);
+                throw;
+            }
+        }
+
+        public static async Task CopyFileAsync(
+            IFileSystem fromFs,
+            IFileSystem toFs,
+            string path,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                using var readStream = await fromFs.OpenReadForCopyAsync(path, cancellationToken);
+                using var writeStream = await toFs.OpenWriteAsync(path, cancellationToken);
+                await readStream.CopyToAsync(writeStream, 81920, cancellationToken);
+                await writeStream.FlushAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                await TryDeleteIncompleteTargetAsync(toFs, path);
+                throw;
+            }
+        }
+
+        private static async Task TryDeleteIncompleteTargetAsync(IFileSystem toFs, string path)
+        {
+            try
+            {
+                await toFs.DeleteFileAsync(path);
+            }
+            catch
+            {
+                // 取消后的清理应尽力而为，保留原始取消异常。
+            }
         }
     }
 }
