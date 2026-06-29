@@ -33,10 +33,14 @@ namespace FolderSync.Core.Sync
             var rawSource = (await sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
             var rawDest = (await destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
 
-            var filteredSource = filterEngine.Filter(rawSource).ToList();
-            var filteredDest = filterEngine.Filter(rawDest).ToList();
+            var filteredSourceFiles = filterEngine.Filter(rawSource).ToList();
+            var filteredDestFiles = filterEngine.Filter(rawDest).ToList();
+            var filteredSource = StructureAwarePathHelper.ExpandWithAncestorDirectories(rawSource, filteredSourceFiles);
+            var filteredDest = StructureAwarePathHelper.ExpandWithAncestorDirectories(rawDest, filteredDestFiles);
+            var filteredSourcePathSet = StructureAwarePathHelper.BuildPathSet(filteredSource);
+            var filteredDestPathSet = StructureAwarePathHelper.BuildPathSet(filteredDest);
             var rawSourceFileCount = rawSource.Count(i => !i.IsDirectory);
-            var filteredSourceFileCount = filteredSource.Count(i => !i.IsDirectory);
+            var filteredSourceFileCount = filteredSourceFiles.Count(i => !i.IsDirectory);
             var isMirror = task.SyncMode == SyncMode.OneWayMirror;
             var diffActions = (await diff.CompareAsync(filteredSource, filteredDest, sourceFs, destFs, isMirror, cancellationToken)).ToList();
 
@@ -72,7 +76,8 @@ namespace FolderSync.Core.Sync
                 srcMap.TryGetValue(path, out var s);
                 dstMap.TryGetValue(path, out var d);
 
-                var inWhite = filterEngine.Filter(new[] { s ?? d! }).Any();
+                var isIncludedByStructure = (s != null && filteredSourcePathSet.Contains(StructureAwarePathHelper.NormalizePath(path)))
+                    || (d != null && filteredDestPathSet.Contains(StructureAwarePathHelper.NormalizePath(path)));
                 effectiveActions.TryGetValue(path, out var act);
 
                 var item = new TaskAnalysisItem
@@ -101,7 +106,7 @@ namespace FolderSync.Core.Sync
                         ? "源路径已完成一次性同步，且检测到内容变化，已告警并跳过"
                         : "已同步过，按一次性规则跳过";
                 }
-                else if (!inWhite)
+                else if (!isIncludedByStructure)
                 {
                     item.ShouldSync = false;
                     item.Reason = "被过滤规则排除";

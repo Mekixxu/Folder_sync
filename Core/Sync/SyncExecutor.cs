@@ -90,8 +90,10 @@ namespace FolderSync.Core.Sync
 
         private async Task ExecuteOneWayAsync(SyncReport report, CancellationToken cancellationToken)
         {
-            var sourceItems = _filterEngine.Filter(await _sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
-            var destItems = _filterEngine.Filter(await _destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var rawSourceItems = (await _sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var rawDestItems = (await _destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var sourceItems = StructureAwarePathHelper.ExpandWithAncestorDirectories(rawSourceItems, _filterEngine.Filter(rawSourceItems));
+            var destItems = StructureAwarePathHelper.ExpandWithAncestorDirectories(rawDestItems, _filterEngine.Filter(rawDestItems));
             Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null;
 
             if (_syncMode == SyncMode.OneWaySendOnce)
@@ -121,7 +123,7 @@ namespace FolderSync.Core.Sync
 
             var isMirror = _syncMode == SyncMode.OneWayMirror;
             var actions = await _diffStrategy.CompareAsync(sourceItems, destItems, _sourceFs, _destFs, isMirror, cancellationToken);
-            var finalActions = ApplySyncModeFilter(actions, deliveredRecords);
+            var finalActions = StructureAwarePathHelper.OrderOneWayActions(ApplySyncModeFilter(actions, deliveredRecords));
             report.TotalActions = finalActions.Count;
             await ExecuteActionsAsync(finalActions, report, cancellationToken, deliveredRecords);
         }
@@ -130,8 +132,10 @@ namespace FolderSync.Core.Sync
         {
             await _twoWayStateStore.InitializeAsync(cancellationToken);
 
-            var sourceItems = _filterEngine.Filter(await _sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
-            var destItems = _filterEngine.Filter(await _destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var rawSourceItems = (await _sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var rawDestItems = (await _destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var sourceItems = StructureAwarePathHelper.ExpandWithAncestorDirectories(rawSourceItems, _filterEngine.Filter(rawSourceItems));
+            var destItems = StructureAwarePathHelper.ExpandWithAncestorDirectories(rawDestItems, _filterEngine.Filter(rawDestItems));
             var sourceMap = sourceItems.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
             var destMap = destItems.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
 
@@ -144,8 +148,10 @@ namespace FolderSync.Core.Sync
             await ExecuteTwoWayOperationsAsync(operations, report, cancellationToken);
 
             // 同步完成后写回新基线
-            var latestSourceItems = _filterEngine.Filter(await _sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
-            var latestDestItems = _filterEngine.Filter(await _destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var latestRawSourceItems = (await _sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var latestRawDestItems = (await _destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var latestSourceItems = StructureAwarePathHelper.ExpandWithAncestorDirectories(latestRawSourceItems, _filterEngine.Filter(latestRawSourceItems));
+            var latestDestItems = StructureAwarePathHelper.ExpandWithAncestorDirectories(latestRawDestItems, _filterEngine.Filter(latestRawDestItems));
             var latestSourceMap = latestSourceItems.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
             var latestDestMap = latestDestItems.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
             var latestSourceSnapshots = await BuildSnapshotsAsync(_sourceFs, latestSourceMap, cancellationToken);
