@@ -48,12 +48,6 @@
                 <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center">
                     <TextBlock Text="{DynamicResource Tasks.BulkTitle}" Style="{StaticResource SectionTitleTextStyle}" />
                     <TextBlock Text="{Binding AnalysisStatusText}" Margin="0,4,0,0" Foreground="{StaticResource SecondaryTextBrush}" FontSize="{StaticResource FontMeta}" />
-                    <TextBlock Text="{Binding AnalysisProgressCurrentFileText}"
-                               Margin="0,4,0,0"
-                               Foreground="{StaticResource SecondaryTextBrush}"
-                               FontSize="{StaticResource FontMeta}"
-                               TextTrimming="CharacterEllipsis"
-                               MaxWidth="560"/>
                 </StackPanel>
 
                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">

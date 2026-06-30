@@ -57,7 +57,6 @@ namespace FolderSync.UI.ViewModels
         private double _busyProgressValue;
         private double _busyProgressMaximum = 1;
         private bool _isBusyProgressIndeterminate = true;
-        private string _busyCurrentFileText = string.Empty;
         public bool IsLoading
         {
             get => _isLoading;
@@ -106,12 +105,6 @@ namespace FolderSync.UI.ViewModels
             set => SetProperty(ref _isBusyProgressIndeterminate, value);
         }
 
-        public string BusyCurrentFileText
-        {
-            get => _busyCurrentFileText;
-            set => SetProperty(ref _busyCurrentFileText, value);
-        }
-
         public string TaskTitle => $"分析结果 - {_task.TaskName}";
         public bool IsBusy => IsLoading || IsExecuting;
         public bool IsStopRequested => _currentOperationCts?.IsCancellationRequested == true;
@@ -146,12 +139,11 @@ namespace FolderSync.UI.ViewModels
                 ResetBusyProgressDisplay();
                 CommandManager.InvalidateRequerySuggested();
                 var token = operationCts.Token;
-                var progress = new Progress<TaskAnalysisProgressInfo>(UpdateBusyAnalysisProgress);
                 var results = await Task.Run(async () =>
                 {
                     return useSavedIfAvailable && _service.HasSavedAnalysis(_task)
                         ? _service.GetSavedAnalysis(_task)
-                        : await _service.AnalyzeAsync(_task, token, progress);
+                        : await _service.AnalyzeAsync(_task, token);
                 }, token);
 
                 ClearItems();
@@ -206,7 +198,6 @@ namespace FolderSync.UI.ViewModels
             {
                 using var operationCts = BeginOperation();
                 IsExecuting = true;
-                BusyCurrentFileText = string.Empty;
                 IsBusyProgressIndeterminate = true;
                 BusyProgressValue = 0;
                 BusyProgressMaximum = 1;
@@ -346,14 +337,6 @@ namespace FolderSync.UI.ViewModels
             BusyProgressValue = 0;
             BusyProgressMaximum = 1;
             IsBusyProgressIndeterminate = true;
-            BusyCurrentFileText = string.Empty;
-        }
-
-        private void UpdateBusyAnalysisProgress(TaskAnalysisProgressInfo progress)
-        {
-            BusyCurrentFileText = string.IsNullOrWhiteSpace(progress.CurrentPath)
-                ? string.Empty
-                : $"当前文件：{progress.CurrentPath}";
         }
 
         private static string FormatBytes(long bytes)

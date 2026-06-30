@@ -21,8 +21,7 @@ namespace FolderSync.Core.Sync
 
         public async Task<List<TaskAnalysisItem>> AnalyzeAsync(
             SyncTaskDefinition task,
-            CancellationToken cancellationToken = default,
-            IProgress<TaskAnalysisProgressInfo>? progress = null)
+            CancellationToken cancellationToken = default)
         {
             using var sourceFs = SyncTaskFactory.CreateSourceFileSystem(task);
             using var destFs = SyncTaskFactory.CreateDestFileSystem(task);
@@ -33,26 +32,8 @@ namespace FolderSync.Core.Sync
             await sourceFs.ConnectAsync(cancellationToken);
             await destFs.ConnectAsync(cancellationToken);
 
-            var rawSource = (await sourceFs.ListFilesAsync(
-                onItemListed: item =>
-                {
-                    progress?.Report(new TaskAnalysisProgressInfo
-                    {
-                        Phase = TaskAnalysisPhase.ListingSource,
-                        CurrentPath = item.Path
-                    });
-                },
-                cancellationToken: cancellationToken)).ToList();
-            var rawDest = (await destFs.ListFilesAsync(
-                onItemListed: item =>
-                {
-                    progress?.Report(new TaskAnalysisProgressInfo
-                    {
-                        Phase = TaskAnalysisPhase.ListingDestination,
-                        CurrentPath = item.Path
-                    });
-                },
-                cancellationToken: cancellationToken)).ToList();
+            var rawSource = (await sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var rawDest = (await destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
 
             var filteredSourceFiles = filterEngine.Filter(rawSource).ToList();
             var filteredDestFiles = filterEngine.Filter(rawDest).ToList();
@@ -69,7 +50,6 @@ namespace FolderSync.Core.Sync
                 sourceFs,
                 destFs,
                 isMirror,
-                progress,
                 cancellationToken)).ToList();
 
             if (task.SyncMode == SyncMode.OneWaySendOnce)
@@ -167,12 +147,6 @@ namespace FolderSync.Core.Sync
                     Reason = $"源端共列举到 {rawSourceFileCount} 个文件，但 0 个文件命中过滤规则。请检查白名单/黑名单，尤其是扩展名和最近小时条件。"
                 });
             }
-
-            progress?.Report(new TaskAnalysisProgressInfo
-            {
-                Phase = TaskAnalysisPhase.Finalizing
-            });
-
             return items
                 .OrderByDescending(i => i.ShouldSync)
                 .ThenBy(i => i.RelativePath, StringComparer.OrdinalIgnoreCase)

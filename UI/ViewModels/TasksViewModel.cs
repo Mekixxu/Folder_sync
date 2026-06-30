@@ -34,7 +34,6 @@ namespace FolderSync.UI.ViewModels
         private double _analysisProgressMaximum = 1;
         private bool _isAnalysisProgressIndeterminate = true;
         private string _analysisStatusText = "未开始分析";
-        private string _analysisProgressCurrentFileText = string.Empty;
         private string _currentOperationDisplayName = string.Empty;
 
         public ObservableCollection<TaskListItemViewModel> Tasks { get; } = new();
@@ -77,12 +76,6 @@ namespace FolderSync.UI.ViewModels
         {
             get => _analysisStatusText;
             set => SetProperty(ref _analysisStatusText, value);
-        }
-
-        public string AnalysisProgressCurrentFileText
-        {
-            get => _analysisProgressCurrentFileText;
-            set => SetProperty(ref _analysisProgressCurrentFileText, value);
         }
 
         public TasksViewModel(Action<object?> navigateAction)
@@ -247,8 +240,8 @@ namespace FolderSync.UI.ViewModels
                 {
                     token.ThrowIfCancellationRequested();
                     var current = selected[i];
-                    var progress = CreateAnalysisProgressReporter(current.Definition.TaskName, i, selected.Count);
-                    var analysis = await AnalyzeTaskAsync(current.Definition, token, progress);
+                    AnalysisStatusText = $"正在分析 ({i + 1}/{selected.Count})：{current.Definition.TaskName}";
+                    var analysis = await AnalyzeTaskAsync(current.Definition, token);
                     _analysisService.SaveAnalysis(current.Definition, analysis);
                     MarkTaskAnalysisCompleted(current.TaskVm, true);
                 }
@@ -299,7 +292,6 @@ namespace FolderSync.UI.ViewModels
                 IsAnalysisProgressIndeterminate = false;
                 AnalysisProgressMaximum = selected.Count;
                 AnalysisProgressValue = 0;
-                AnalysisProgressCurrentFileText = string.Empty;
                 var reportCount = 0;
                 var reportFileNames = new List<string>();
                 for (var i = 0; i < selected.Count; i++)
@@ -366,8 +358,8 @@ namespace FolderSync.UI.ViewModels
                 {
                     token.ThrowIfCancellationRequested();
                     var current = selected[i];
-                    var progress = CreateAnalysisProgressReporter(current.Definition.TaskName, i, selected.Count);
-                    var analysis = await AnalyzeTaskAsync(current.Definition, token, progress);
+                    AnalysisStatusText = $"正在分析 ({i + 1}/{selected.Count})：{current.Definition.TaskName}";
+                    var analysis = await AnalyzeTaskAsync(current.Definition, token);
                     _analysisService.SaveAnalysis(current.Definition, analysis);
                     MarkTaskAnalysisCompleted(current.TaskVm, true);
                 }
@@ -376,7 +368,6 @@ namespace FolderSync.UI.ViewModels
                 IsAnalysisProgressIndeterminate = false;
                 AnalysisProgressMaximum = selected.Count;
                 AnalysisProgressValue = 0;
-                AnalysisProgressCurrentFileText = string.Empty;
 
                 for (var i = 0; i < selected.Count; i++)
                 {
@@ -429,11 +420,10 @@ namespace FolderSync.UI.ViewModels
 
         private Task<List<TaskAnalysisItem>> AnalyzeTaskAsync(
             SyncTaskDefinition definition,
-            CancellationToken cancellationToken,
-            IProgress<TaskAnalysisProgressInfo>? progress = null)
+            CancellationToken cancellationToken)
         {
             return Task.Run(
-                async () => await _analysisService.AnalyzeAsync(definition, cancellationToken, progress),
+                async () => await _analysisService.AnalyzeAsync(definition, cancellationToken),
                 cancellationToken);
         }
 
@@ -487,30 +477,6 @@ namespace FolderSync.UI.ViewModels
             AnalysisProgressValue = 0;
             AnalysisProgressMaximum = 1;
             IsAnalysisProgressIndeterminate = true;
-            AnalysisProgressCurrentFileText = string.Empty;
-        }
-
-        private Progress<TaskAnalysisProgressInfo> CreateAnalysisProgressReporter(string taskName, int taskIndex, int taskCount)
-        {
-            return new Progress<TaskAnalysisProgressInfo>(progress =>
-            {
-                AnalysisStatusText = $"{GetPhaseDisplayText(progress.Phase)} ({taskIndex + 1}/{taskCount})：{taskName}";
-                AnalysisProgressCurrentFileText = string.IsNullOrWhiteSpace(progress.CurrentPath)
-                    ? string.Empty
-                    : $"当前文件：{progress.CurrentPath}";
-            });
-        }
-
-        private static string GetPhaseDisplayText(TaskAnalysisPhase phase)
-        {
-            return phase switch
-            {
-                TaskAnalysisPhase.ListingSource => "正在列举源端",
-                TaskAnalysisPhase.ListingDestination => "正在列举目标端",
-                TaskAnalysisPhase.Comparing => "正在分析",
-                TaskAnalysisPhase.Finalizing => "正在整理结果",
-                _ => "正在分析"
-            };
         }
 
         private static void MarkTaskAnalysisCompleted(TaskListItemViewModel taskVm, bool completed)

@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using FolderSync.Core.Sync;
 using FolderSync.Core.VFS;
 
 namespace FolderSync.Core.Diff
@@ -26,7 +25,6 @@ namespace FolderSync.Core.Diff
             IFileSystem sourceFs,
             IFileSystem destFs,
             bool isTwoWayOrMirror = false,
-            IProgress<TaskAnalysisProgressInfo>? progress = null,
             CancellationToken cancellationToken = default);
     }
 }

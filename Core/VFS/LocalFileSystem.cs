@@ -38,11 +38,7 @@ namespace FolderSync.Core.VFS
             return Task.CompletedTask;
         }
 
-        public Task<IEnumerable<FileItem>> ListFilesAsync(
-            string path = "",
-            bool recursive = true,
-            Action<FileItem>? onItemListed = null,
-            CancellationToken cancellationToken = default)
+        public Task<IEnumerable<FileItem>> ListFilesAsync(string path = "", bool recursive = true, CancellationToken cancellationToken = default)
         {
             var fullPath = GetFullPath(path);
             var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
@@ -64,7 +60,6 @@ namespace FolderSync.Core.VFS
                     LastWriteTime = dir.LastWriteTimeUtc,
                     Size = 0
                 });
-                onItemListed?.Invoke(result[^1]);
             }
 
             // 添加所有文件
@@ -78,7 +73,6 @@ namespace FolderSync.Core.VFS
                     LastWriteTime = file.LastWriteTimeUtc,
                     Size = file.Length
                 });
-                onItemListed?.Invoke(result[^1]);
             }
 
             return Task.FromResult<IEnumerable<FileItem>>(result);

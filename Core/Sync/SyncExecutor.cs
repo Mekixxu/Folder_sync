@@ -128,7 +128,6 @@ namespace FolderSync.Core.Sync
                 _sourceFs,
                 _destFs,
                 isMirror,
-                progress: null,
                 cancellationToken);
             var finalActions = StructureAwarePathHelper.OrderOneWayActions(ApplySyncModeFilter(actions, deliveredRecords));
             report.TotalActions = finalActions.Count;

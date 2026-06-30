@@ -46,7 +46,6 @@ namespace FolderSync.Core.VFS
         public async Task<IEnumerable<FileItem>> ListFilesAsync(
             string path = "",
             bool recursive = true,
-            Action<FileItem>? onItemListed = null,
             CancellationToken cancellationToken = default)
         {
             await ConnectAsync(cancellationToken);
@@ -54,10 +53,10 @@ namespace FolderSync.Core.VFS
 
             if (!recursive)
             {
-                return await ListSingleDirectoryAsync(fullPath, onItemListed, cancellationToken);
+                return await ListSingleDirectoryAsync(fullPath, cancellationToken);
             }
 
-            return await ListDirectoriesBreadthFirstAsync(fullPath, onItemListed, cancellationToken);
+            return await ListDirectoriesBreadthFirstAsync(fullPath, cancellationToken);
         }
 
         public async Task<FileItem?> GetFileInfoAsync(string path, CancellationToken cancellationToken = default)
@@ -184,7 +183,6 @@ namespace FolderSync.Core.VFS
 
         private async Task<List<FileItem>> ListSingleDirectoryAsync(
             string fullPath,
-            Action<FileItem>? onItemListed,
             CancellationToken cancellationToken)
         {
             Exception? lastException = null;
@@ -205,7 +203,6 @@ namespace FolderSync.Core.VFS
                         }
 
                         result.Add(mapped);
-                        onItemListed?.Invoke(mapped);
                     }
 
                     return result;
@@ -241,7 +238,6 @@ namespace FolderSync.Core.VFS
 
         private async Task<List<FileItem>> ListDirectoriesBreadthFirstAsync(
             string rootPath,
-            Action<FileItem>? onItemListed,
             CancellationToken cancellationToken)
         {
             var result = new List<FileItem>();
@@ -259,7 +255,7 @@ namespace FolderSync.Core.VFS
                 List<FileItem> items;
                 try
                 {
-                    items = await ListSingleDirectoryAsync(currentPath, onItemListed, cancellationToken);
+                    items = await ListSingleDirectoryAsync(currentPath, cancellationToken);
                 }
                 catch (Exception ex) when (!string.Equals(NormalizePath(currentPath), NormalizePath(rootPath), StringComparison.OrdinalIgnoreCase))
                 {

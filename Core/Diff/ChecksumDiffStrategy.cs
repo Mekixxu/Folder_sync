@@ -4,7 +4,6 @@ using System.IO.Hashing;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using FolderSync.Core.Sync;
 using FolderSync.Core.VFS;
 
 namespace FolderSync.Core.Diff
@@ -21,7 +20,6 @@ namespace FolderSync.Core.Diff
             IFileSystem sourceFs,
             IFileSystem destFs,
             bool isTwoWayOrMirror = false,
-            IProgress<TaskAnalysisProgressInfo>? progress = null,
             CancellationToken cancellationToken = default)
         {
             var actions = new List<SyncAction>();
@@ -47,13 +45,11 @@ namespace FolderSync.Core.Diff
                         else
                         {
                             // 大小一样，我们需要深度比较文件流的哈希值
-                            ReportProgress(progress, src.Path);
                             var srcHash = await ComputeHashAsync(
                                 sourceFs,
                                 src.Path,
                                 cancellationToken);
 
-                            ReportProgress(progress, dest.Path);
                             var destHash = await ComputeHashAsync(
                                 destFs,
                                 dest.Path,
@@ -70,8 +66,6 @@ namespace FolderSync.Core.Diff
                 {
                     actions.Add(new SyncAction(SyncActionType.Create, src, null));
                 }
-
-                ReportProgress(progress, src.Path);
             }
 
             if (isTwoWayOrMirror)
@@ -83,7 +77,6 @@ namespace FolderSync.Core.Diff
                     if (!sourceDict.ContainsKey(dest.Path))
                     {
                         actions.Add(new SyncAction(SyncActionType.Delete, null, dest));
-                        ReportProgress(progress, dest.Path);
                     }
                 }
             }
@@ -114,15 +107,6 @@ namespace FolderSync.Core.Diff
                 hasher.Append(buffer.AsSpan(0, bytesRead));
             }
             return hasher.GetCurrentHash();
-        }
-
-        private static void ReportProgress(IProgress<TaskAnalysisProgressInfo>? progress, string currentPath)
-        {
-            progress?.Report(new TaskAnalysisProgressInfo
-            {
-                Phase = TaskAnalysisPhase.Comparing,
-                CurrentPath = currentPath
-            });
         }
     }
 }

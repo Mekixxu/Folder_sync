@@ -24,11 +24,7 @@ namespace FolderSync.Core.VFS
         /// <summary>
         /// 列出指定路径下的所有文件和文件夹
         /// </summary>
-        Task<IEnumerable<FileItem>> ListFilesAsync(
-            string path = "",
-            bool recursive = true,
-            Action<FileItem>? onItemListed = null,
-            CancellationToken cancellationToken = default);
+        Task<IEnumerable<FileItem>> ListFilesAsync(string path = "", bool recursive = true, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 获取指定文件或目录的信息
