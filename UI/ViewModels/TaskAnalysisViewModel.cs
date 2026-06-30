@@ -58,7 +58,6 @@ namespace FolderSync.UI.ViewModels
         private double _busyProgressMaximum = 1;
         private bool _isBusyProgressIndeterminate = true;
         private string _busyCurrentFileText = string.Empty;
-        private string _busyDataProgressText = "正在统计待分析数据量...";
         public bool IsLoading
         {
             get => _isLoading;
@@ -111,12 +110,6 @@ namespace FolderSync.UI.ViewModels
         {
             get => _busyCurrentFileText;
             set => SetProperty(ref _busyCurrentFileText, value);
-        }
-
-        public string BusyDataProgressText
-        {
-            get => _busyDataProgressText;
-            set => SetProperty(ref _busyDataProgressText, value);
         }
 
         public string TaskTitle => $"分析结果 - {_task.TaskName}";
@@ -214,7 +207,6 @@ namespace FolderSync.UI.ViewModels
                 using var operationCts = BeginOperation();
                 IsExecuting = true;
                 BusyCurrentFileText = string.Empty;
-                BusyDataProgressText = string.Empty;
                 IsBusyProgressIndeterminate = true;
                 BusyProgressValue = 0;
                 BusyProgressMaximum = 1;
@@ -355,7 +347,6 @@ namespace FolderSync.UI.ViewModels
             BusyProgressMaximum = 1;
             IsBusyProgressIndeterminate = true;
             BusyCurrentFileText = string.Empty;
-            BusyDataProgressText = "正在统计待分析数据量...";
         }
 
         private void UpdateBusyAnalysisProgress(TaskAnalysisProgressInfo progress)
@@ -363,22 +354,6 @@ namespace FolderSync.UI.ViewModels
             BusyCurrentFileText = string.IsNullOrWhiteSpace(progress.CurrentPath)
                 ? string.Empty
                 : $"当前文件：{progress.CurrentPath}";
-
-            if (progress.IsIndeterminate)
-            {
-                IsBusyProgressIndeterminate = true;
-                BusyProgressMaximum = 1;
-                BusyProgressValue = 0;
-                BusyDataProgressText = progress.Phase == TaskAnalysisPhase.Finalizing
-                    ? "正在整理分析结果..."
-                    : "正在统计待分析数据量...";
-                return;
-            }
-
-            IsBusyProgressIndeterminate = false;
-            BusyProgressMaximum = Math.Max(1, progress.TotalBytes);
-            BusyProgressValue = Math.Min(progress.ProcessedBytes, progress.TotalBytes);
-            BusyDataProgressText = $"已分析 {FormatBytes(progress.ProcessedBytes)}，待分析 {FormatBytes(progress.PendingBytes)}";
         }
 
         private static string FormatBytes(long bytes)

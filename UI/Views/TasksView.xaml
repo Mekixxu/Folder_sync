@@ -54,10 +54,6 @@
                                FontSize="{StaticResource FontMeta}"
                                TextTrimming="CharacterEllipsis"
                                MaxWidth="560"/>
-                    <TextBlock Text="{Binding AnalysisProgressDataText}"
-                               Margin="0,2,0,0"
-                               Foreground="{StaticResource SecondaryTextBrush}"
-                               FontSize="{StaticResource FontMeta}"/>
                 </StackPanel>
 
                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">

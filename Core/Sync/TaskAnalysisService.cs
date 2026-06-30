@@ -29,8 +29,6 @@ namespace FolderSync.Core.Sync
             var diff = SyncTaskFactory.CreateDiffStrategy(task.DiffStrategy);
             var filterEngine = SyncTaskFactory.CreateFilterEngine(task.FilterConfiguration ?? new DualListFilterConfiguration());
             Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null;
-            long sourceListedBytes = 0;
-            long destListedBytes = 0;
 
             await sourceFs.ConnectAsync(cancellationToken);
             await destFs.ConnectAsync(cancellationToken);
@@ -38,26 +36,20 @@ namespace FolderSync.Core.Sync
             var rawSource = (await sourceFs.ListFilesAsync(
                 onItemListed: item =>
                 {
-                    sourceListedBytes += GetComparableSize(item);
                     progress?.Report(new TaskAnalysisProgressInfo
                     {
                         Phase = TaskAnalysisPhase.ListingSource,
-                        CurrentPath = item.Path,
-                        ProcessedBytes = sourceListedBytes,
-                        TotalBytes = 0
+                        CurrentPath = item.Path
                     });
                 },
                 cancellationToken: cancellationToken)).ToList();
             var rawDest = (await destFs.ListFilesAsync(
                 onItemListed: item =>
                 {
-                    destListedBytes += GetComparableSize(item);
                     progress?.Report(new TaskAnalysisProgressInfo
                     {
                         Phase = TaskAnalysisPhase.ListingDestination,
-                        CurrentPath = item.Path,
-                        ProcessedBytes = destListedBytes,
-                        TotalBytes = 0
+                        CurrentPath = item.Path
                     });
                 },
                 cancellationToken: cancellationToken)).ToList();
@@ -178,20 +170,13 @@ namespace FolderSync.Core.Sync
 
             progress?.Report(new TaskAnalysisProgressInfo
             {
-                Phase = TaskAnalysisPhase.Finalizing,
-                ProcessedBytes = 1,
-                TotalBytes = 1
+                Phase = TaskAnalysisPhase.Finalizing
             });
 
             return items
                 .OrderByDescending(i => i.ShouldSync)
                 .ThenBy(i => i.RelativePath, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-        }
-
-        private static long GetComparableSize(FileItem item)
-        {
-            return item.IsDirectory ? 0L : Math.Max(0L, item.Size);
         }
 
         public List<TaskAnalysisItem> GetSavedAnalysis(SyncTaskDefinition task)

@@ -101,11 +101,6 @@
                                TextAlignment="Center"
                                TextTrimming="CharacterEllipsis"
                                MaxWidth="620"/>
-                    <TextBlock Margin="0,6,0,0"
-                               Text="{Binding BusyDataProgressText}"
-                               Foreground="{StaticResource SecondaryTextBrush}"
-                               TextAlignment="Center"
-                               MaxWidth="620"/>
                 </StackPanel>
             </Border>
         </Grid>
