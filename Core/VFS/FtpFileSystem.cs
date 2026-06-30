@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Threading;
 using FluentFTP;
 using Serilog;
 
@@ -13,6 +13,8 @@ namespace FolderSync.Core.VFS
     /// </summary>
     public class FtpFileSystem : IFileSystem
     {
+        private const int DirectoryListingRetryCount = 3;
+        private const int DirectoryListingRetryDelayMilliseconds = 500;
         private readonly AsyncFtpClient _client;
         private readonly string _basePath;
         private readonly string _host;
@@ -62,10 +64,11 @@ namespace FolderSync.Core.VFS
             var item = await _client.GetObjectInfo(fullPath, token: cancellationToken);
             if (item == null) return null;
 
+            var relativePath = ResolveRelativePathForObjectInfo(item, path);
             return new FileItem
             {
                 Name = item.Name,
-                Path = GetRelativePath(item.FullName),
+                Path = relativePath,
                 IsDirectory = item.Type == FtpObjectType.Directory,
                 LastWriteTime = item.Modified,
                 Size = item.Size
@@ -177,29 +180,55 @@ namespace FolderSync.Core.VFS
 
         private async Task<List<FileItem>> ListSingleDirectoryAsync(string fullPath, CancellationToken cancellationToken)
         {
-            try
+            Exception? lastException = null;
+            for (var attempt = 1; attempt <= DirectoryListingRetryCount; attempt++)
             {
-                var ftpItems = await _client.GetListing(fullPath, FtpListOption.Auto, cancellationToken);
-                var result = new List<FileItem>();
-
-                foreach (var item in ftpItems)
+                cancellationToken.ThrowIfCancellationRequested();
+                try
                 {
-                    if (!TryMapListItem(item, out var mapped))
+                    await ConnectAsync(cancellationToken);
+                    var ftpItems = await _client.GetListing(fullPath, FtpListOption.Auto, cancellationToken);
+                    var result = new List<FileItem>();
+
+                    foreach (var item in ftpItems)
                     {
-                        continue;
+                        if (!TryMapListItem(item, out var mapped))
+                        {
+                            continue;
+                        }
+
+                        result.Add(mapped);
                     }
 
-                    result.Add(mapped);
+                    return result;
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (attempt < DirectoryListingRetryCount)
+                {
+                    lastException = ex;
+                    Log.Warning(
+                        ex,
+                        "FTP 列举目录失败，准备重试：{Directory}（{Attempt}/{MaxAttempts}）",
+                        DescribeDirectory(fullPath),
+                        attempt,
+                        DirectoryListingRetryCount);
 
-                return result;
+                    ResetConnection();
+                    await Task.Delay(DirectoryListingRetryDelayMilliseconds, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                    break;
+                }
             }
-            catch (Exception ex)
-            {
-                throw new IOException(
-                    $"FTP 列举目录失败：{DescribeDirectory(fullPath)}。{ex.Message}",
-                    ex);
-            }
+
+            throw new IOException(
+                $"FTP 列举目录失败：{DescribeDirectory(fullPath)}。{lastException?.Message}",
+                lastException);
         }
 
         private async Task<List<FileItem>> ListDirectoriesBreadthFirstAsync(string rootPath, CancellationToken cancellationToken)
@@ -276,6 +305,21 @@ namespace FolderSync.Core.VFS
             return true;
         }
 
+        private void ResetConnection()
+        {
+            try
+            {
+                if (_client.IsConnected)
+                {
+                    _client.Disconnect();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "FTP 重置连接时发生异常，将继续尝试重新连接。");
+            }
+        }
+
         private string ResolveFullName(FtpListItem item)
         {
             if (!string.IsNullOrWhiteSpace(item.FullName))
@@ -289,6 +333,27 @@ namespace FolderSync.Core.VFS
             }
 
             return NormalizePath($"{_basePath.TrimEnd('/')}/{item.Name.TrimStart('/')}");
+        }
+
+        private string ResolveRelativePathForObjectInfo(FtpListItem item, string requestedRelativePath)
+        {
+            var mappedRelativePath = GetRelativePath(item.FullName);
+            var normalizedRequestedPath = NormalizeRelativeItemPath(requestedRelativePath);
+
+            if (string.IsNullOrWhiteSpace(normalizedRequestedPath))
+            {
+                return mappedRelativePath;
+            }
+
+            if (!string.Equals(
+                    NormalizeRelativeItemPath(mappedRelativePath),
+                    normalizedRequestedPath,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return normalizedRequestedPath;
+            }
+
+            return mappedRelativePath;
         }
 
         /// <summary>
@@ -306,6 +371,16 @@ namespace FolderSync.Core.VFS
             }
 
             return normalizedFullPath.TrimStart('/');
+        }
+
+        private static string NormalizeRelativeItemPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || path == "." || path == "/" || path == "\\")
+            {
+                return string.Empty;
+            }
+
+            return path.Replace('\\', '/').Trim().Trim('/');
         }
 
         /// <summary>
