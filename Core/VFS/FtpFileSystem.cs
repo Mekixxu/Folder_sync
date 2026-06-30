@@ -43,17 +43,21 @@ namespace FolderSync.Core.VFS
             }
         }
 
-        public async Task<IEnumerable<FileItem>> ListFilesAsync(string path = "", bool recursive = true, CancellationToken cancellationToken = default)
+        public async Task<IEnumerable<FileItem>> ListFilesAsync(
+            string path = "",
+            bool recursive = true,
+            Action<FileItem>? onItemListed = null,
+            CancellationToken cancellationToken = default)
         {
             await ConnectAsync(cancellationToken);
             var fullPath = GetFullPath(path);
 
             if (!recursive)
             {
-                return await ListSingleDirectoryAsync(fullPath, cancellationToken);
+                return await ListSingleDirectoryAsync(fullPath, onItemListed, cancellationToken);
             }
 
-            return await ListDirectoriesBreadthFirstAsync(fullPath, cancellationToken);
+            return await ListDirectoriesBreadthFirstAsync(fullPath, onItemListed, cancellationToken);
         }
 
         public async Task<FileItem?> GetFileInfoAsync(string path, CancellationToken cancellationToken = default)
@@ -178,7 +182,10 @@ namespace FolderSync.Core.VFS
             return _basePath + relPathNormalized;
         }
 
-        private async Task<List<FileItem>> ListSingleDirectoryAsync(string fullPath, CancellationToken cancellationToken)
+        private async Task<List<FileItem>> ListSingleDirectoryAsync(
+            string fullPath,
+            Action<FileItem>? onItemListed,
+            CancellationToken cancellationToken)
         {
             Exception? lastException = null;
             for (var attempt = 1; attempt <= DirectoryListingRetryCount; attempt++)
@@ -198,6 +205,7 @@ namespace FolderSync.Core.VFS
                         }
 
                         result.Add(mapped);
+                        onItemListed?.Invoke(mapped);
                     }
 
                     return result;
@@ -231,7 +239,10 @@ namespace FolderSync.Core.VFS
                 lastException);
         }
 
-        private async Task<List<FileItem>> ListDirectoriesBreadthFirstAsync(string rootPath, CancellationToken cancellationToken)
+        private async Task<List<FileItem>> ListDirectoriesBreadthFirstAsync(
+            string rootPath,
+            Action<FileItem>? onItemListed,
+            CancellationToken cancellationToken)
         {
             var result = new List<FileItem>();
             var pending = new Queue<string>();
@@ -248,7 +259,7 @@ namespace FolderSync.Core.VFS
                 List<FileItem> items;
                 try
                 {
-                    items = await ListSingleDirectoryAsync(currentPath, cancellationToken);
+                    items = await ListSingleDirectoryAsync(currentPath, onItemListed, cancellationToken);
                 }
                 catch (Exception ex) when (!string.Equals(NormalizePath(currentPath), NormalizePath(rootPath), StringComparison.OrdinalIgnoreCase))
                 {

@@ -4,6 +4,7 @@ using System.IO.Hashing;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using FolderSync.Core.Sync;
 using FolderSync.Core.VFS;
 
 namespace FolderSync.Core.Diff
@@ -20,14 +21,20 @@ namespace FolderSync.Core.Diff
             IFileSystem sourceFs,
             IFileSystem destFs,
             bool isTwoWayOrMirror = false,
+            IProgress<TaskAnalysisProgressInfo>? progress = null,
             CancellationToken cancellationToken = default)
         {
             var actions = new List<SyncAction>();
+            long processedBytes = 0;
             
-            var sourceDict = sourceItems.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
-            var destDict = destinationItems.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
+            var sourceList = sourceItems.ToList();
+            var destinationList = destinationItems.ToList();
+            var totalBytes = sourceList.Where(i => !i.IsDirectory).Sum(i => i.Size)
+                + destinationList.Where(i => !i.IsDirectory).Sum(i => i.Size);
+            var sourceDict = sourceList.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
+            var destDict = destinationList.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
 
-            foreach (var src in sourceItems)
+            foreach (var src in sourceList)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -39,12 +46,25 @@ namespace FolderSync.Core.Diff
                         if (src.Size != dest.Size)
                         {
                             actions.Add(new SyncAction(SyncActionType.Update, src, dest));
+                            processedBytes += src.Size + dest.Size;
+                            ReportProgress(progress, src.Path, processedBytes, totalBytes);
                         }
                         else
                         {
                             // 大小一样，我们需要深度比较文件流的哈希值
-                            var srcHash = await ComputeHashAsync(sourceFs, src.Path, cancellationToken);
-                            var destHash = await ComputeHashAsync(destFs, dest.Path, cancellationToken);
+                            var (srcHash, srcBytesRead) = await ComputeHashAsync(
+                                sourceFs,
+                                src.Path,
+                                cancellationToken);
+                            processedBytes += srcBytesRead;
+                            ReportProgress(progress, src.Path, processedBytes, totalBytes);
+
+                            var (destHash, destBytesRead) = await ComputeHashAsync(
+                                destFs,
+                                dest.Path,
+                                cancellationToken);
+                            processedBytes += destBytesRead;
+                            ReportProgress(progress, dest.Path, processedBytes, totalBytes);
 
                             if (srcHash != destHash)
                             {
@@ -56,21 +76,27 @@ namespace FolderSync.Core.Diff
                 else
                 {
                     actions.Add(new SyncAction(SyncActionType.Create, src, null));
+                    processedBytes += src.IsDirectory ? 0L : src.Size;
+                    ReportProgress(progress, src.Path, processedBytes, totalBytes);
                 }
             }
 
             if (isTwoWayOrMirror)
             {
-                foreach (var dest in destinationItems)
+                foreach (var dest in destinationList)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
                     if (!sourceDict.ContainsKey(dest.Path))
                     {
                         actions.Add(new SyncAction(SyncActionType.Delete, null, dest));
+                        processedBytes += dest.IsDirectory ? 0L : dest.Size;
+                        ReportProgress(progress, dest.Path, processedBytes, totalBytes);
                     }
                 }
             }
+
+            ReportProgress(progress, string.Empty, totalBytes, totalBytes);
 
             return actions;
         }
@@ -78,14 +104,24 @@ namespace FolderSync.Core.Diff
         /// <summary>
         /// 从指定的文件系统和路径中计算文件散列值
         /// </summary>
-        private async Task<string> ComputeHashAsync(IFileSystem fs, string path, CancellationToken cancellationToken)
+        private async Task<(string Hash, long BytesRead)> ComputeHashAsync(
+            IFileSystem fs,
+            string path,
+            CancellationToken cancellationToken)
         {
             using var stream = await fs.OpenReadAsync(path, cancellationToken);
-            byte[] hashBytes = await ComputeXxHash64Async(stream, cancellationToken);
-            return Convert.ToHexString(hashBytes);
+            long bytesReadTotal = 0;
+            byte[] hashBytes = await ComputeXxHash64Async(
+                stream,
+                bytesRead => bytesReadTotal += bytesRead,
+                cancellationToken);
+            return (Convert.ToHexString(hashBytes), bytesReadTotal);
         }
 
-        private static async Task<byte[]> ComputeXxHash64Async(System.IO.Stream stream, CancellationToken cancellationToken)
+        private static async Task<byte[]> ComputeXxHash64Async(
+            System.IO.Stream stream,
+            Action<int>? onBytesRead,
+            CancellationToken cancellationToken)
         {
             var hasher = new XxHash64();
             var buffer = new byte[81920];
@@ -93,8 +129,24 @@ namespace FolderSync.Core.Diff
             while ((bytesRead = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
             {
                 hasher.Append(buffer.AsSpan(0, bytesRead));
+                onBytesRead?.Invoke(bytesRead);
             }
             return hasher.GetCurrentHash();
+        }
+
+        private static void ReportProgress(
+            IProgress<TaskAnalysisProgressInfo>? progress,
+            string currentPath,
+            long processedBytes,
+            long totalBytes)
+        {
+            progress?.Report(new TaskAnalysisProgressInfo
+            {
+                Phase = TaskAnalysisPhase.Comparing,
+                CurrentPath = currentPath,
+                ProcessedBytes = Math.Min(processedBytes, totalBytes),
+                TotalBytes = totalBytes
+            });
         }
     }
 }

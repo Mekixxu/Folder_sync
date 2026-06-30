@@ -32,7 +32,10 @@ namespace FolderSync.UI.ViewModels
         private bool _isAnalysisProgressVisible;
         private double _analysisProgressValue;
         private double _analysisProgressMaximum = 1;
+        private bool _isAnalysisProgressIndeterminate = true;
         private string _analysisStatusText = "未开始分析";
+        private string _analysisProgressCurrentFileText = string.Empty;
+        private string _analysisProgressDataText = string.Empty;
         private string _currentOperationDisplayName = string.Empty;
 
         public ObservableCollection<TaskListItemViewModel> Tasks { get; } = new();
@@ -65,10 +68,28 @@ namespace FolderSync.UI.ViewModels
             set => SetProperty(ref _analysisProgressMaximum, value);
         }
 
+        public bool IsAnalysisProgressIndeterminate
+        {
+            get => _isAnalysisProgressIndeterminate;
+            set => SetProperty(ref _isAnalysisProgressIndeterminate, value);
+        }
+
         public string AnalysisStatusText
         {
             get => _analysisStatusText;
             set => SetProperty(ref _analysisStatusText, value);
+        }
+
+        public string AnalysisProgressCurrentFileText
+        {
+            get => _analysisProgressCurrentFileText;
+            set => SetProperty(ref _analysisProgressCurrentFileText, value);
+        }
+
+        public string AnalysisProgressDataText
+        {
+            get => _analysisProgressDataText;
+            set => SetProperty(ref _analysisProgressDataText, value);
         }
 
         public TasksViewModel(Action<object?> navigateAction)
@@ -227,18 +248,16 @@ namespace FolderSync.UI.ViewModels
             {
                 var token = operationCts.Token;
                 IsAnalysisProgressVisible = true;
-                AnalysisProgressMaximum = selected.Count;
-                AnalysisProgressValue = 0;
+                ResetAnalysisProgressDisplay();
 
                 for (var i = 0; i < selected.Count; i++)
                 {
                     token.ThrowIfCancellationRequested();
                     var current = selected[i];
-                    AnalysisStatusText = $"正在分析 ({i + 1}/{selected.Count})：{current.Definition.TaskName}";
-                    var analysis = await AnalyzeTaskAsync(current.Definition, token);
+                    var progress = CreateAnalysisProgressReporter(current.Definition.TaskName, i, selected.Count);
+                    var analysis = await AnalyzeTaskAsync(current.Definition, token, progress);
                     _analysisService.SaveAnalysis(current.Definition, analysis);
                     MarkTaskAnalysisCompleted(current.TaskVm, true);
-                    AnalysisProgressValue = i + 1;
                 }
 
                 AnalysisStatusText = selected.Count == 1
@@ -284,8 +303,11 @@ namespace FolderSync.UI.ViewModels
             {
                 var token = operationCts.Token;
                 IsAnalysisProgressVisible = true;
+                IsAnalysisProgressIndeterminate = false;
                 AnalysisProgressMaximum = selected.Count;
                 AnalysisProgressValue = 0;
+                AnalysisProgressCurrentFileText = string.Empty;
+                AnalysisProgressDataText = string.Empty;
                 var reportCount = 0;
                 var reportFileNames = new List<string>();
                 for (var i = 0; i < selected.Count; i++)
@@ -345,22 +367,25 @@ namespace FolderSync.UI.ViewModels
             {
                 var token = operationCts.Token;
                 IsAnalysisProgressVisible = true;
-                AnalysisProgressMaximum = selected.Count;
-                AnalysisProgressValue = 0;
+                ResetAnalysisProgressDisplay();
                 var reportFileNames = new List<string>();
 
                 for (var i = 0; i < selected.Count; i++)
                 {
                     token.ThrowIfCancellationRequested();
                     var current = selected[i];
-                    AnalysisStatusText = $"正在分析 ({i + 1}/{selected.Count})：{current.Definition.TaskName}";
-                    var analysis = await AnalyzeTaskAsync(current.Definition, token);
+                    var progress = CreateAnalysisProgressReporter(current.Definition.TaskName, i, selected.Count);
+                    var analysis = await AnalyzeTaskAsync(current.Definition, token, progress);
                     _analysisService.SaveAnalysis(current.Definition, analysis);
                     MarkTaskAnalysisCompleted(current.TaskVm, true);
-                    AnalysisProgressValue = i + 1;
                 }
 
                 AnalysisStatusText = "分析完成，开始执行同步...";
+                IsAnalysisProgressIndeterminate = false;
+                AnalysisProgressMaximum = selected.Count;
+                AnalysisProgressValue = 0;
+                AnalysisProgressCurrentFileText = string.Empty;
+                AnalysisProgressDataText = string.Empty;
 
                 for (var i = 0; i < selected.Count; i++)
                 {
@@ -411,9 +436,14 @@ namespace FolderSync.UI.ViewModels
             return selected;
         }
 
-        private Task<List<TaskAnalysisItem>> AnalyzeTaskAsync(SyncTaskDefinition definition, CancellationToken cancellationToken)
+        private Task<List<TaskAnalysisItem>> AnalyzeTaskAsync(
+            SyncTaskDefinition definition,
+            CancellationToken cancellationToken,
+            IProgress<TaskAnalysisProgressInfo>? progress = null)
         {
-            return Task.Run(async () => await _analysisService.AnalyzeAsync(definition, cancellationToken), cancellationToken);
+            return Task.Run(
+                async () => await _analysisService.AnalyzeAsync(definition, cancellationToken, progress),
+                cancellationToken);
         }
 
         private Task<SyncReport> ExecuteSelectedItemsAsync(
@@ -461,6 +491,54 @@ namespace FolderSync.UI.ViewModels
             return _definitions.FirstOrDefault(t => string.Equals(t.Id, taskId, StringComparison.OrdinalIgnoreCase));
         }
 
+        private void ResetAnalysisProgressDisplay()
+        {
+            AnalysisProgressValue = 0;
+            AnalysisProgressMaximum = 1;
+            IsAnalysisProgressIndeterminate = true;
+            AnalysisProgressCurrentFileText = string.Empty;
+            AnalysisProgressDataText = "正在统计待分析数据量...";
+        }
+
+        private Progress<TaskAnalysisProgressInfo> CreateAnalysisProgressReporter(string taskName, int taskIndex, int taskCount)
+        {
+            return new Progress<TaskAnalysisProgressInfo>(progress =>
+            {
+                AnalysisStatusText = $"{GetPhaseDisplayText(progress.Phase)} ({taskIndex + 1}/{taskCount})：{taskName}";
+                AnalysisProgressCurrentFileText = string.IsNullOrWhiteSpace(progress.CurrentPath)
+                    ? string.Empty
+                    : $"当前文件：{progress.CurrentPath}";
+
+                if (progress.IsIndeterminate)
+                {
+                    IsAnalysisProgressIndeterminate = true;
+                    AnalysisProgressMaximum = 1;
+                    AnalysisProgressValue = 0;
+                    AnalysisProgressDataText = progress.Phase == TaskAnalysisPhase.Finalizing
+                        ? "正在整理分析结果..."
+                        : "正在统计待分析数据量...";
+                    return;
+                }
+
+                IsAnalysisProgressIndeterminate = false;
+                AnalysisProgressMaximum = Math.Max(1, progress.TotalBytes);
+                AnalysisProgressValue = Math.Min(progress.ProcessedBytes, progress.TotalBytes);
+                AnalysisProgressDataText = $"已分析 {FormatBytes(progress.ProcessedBytes)}，待分析 {FormatBytes(progress.PendingBytes)}";
+            });
+        }
+
+        private static string GetPhaseDisplayText(TaskAnalysisPhase phase)
+        {
+            return phase switch
+            {
+                TaskAnalysisPhase.ListingSource => "正在列举源端",
+                TaskAnalysisPhase.ListingDestination => "正在列举目标端",
+                TaskAnalysisPhase.Comparing => "正在分析",
+                TaskAnalysisPhase.Finalizing => "正在整理结果",
+                _ => "正在分析"
+            };
+        }
+
         private static void MarkTaskAnalysisCompleted(TaskListItemViewModel taskVm, bool completed)
         {
             taskVm.IsAnalysisCompleted = completed;
@@ -479,6 +557,22 @@ namespace FolderSync.UI.ViewModels
                 : string.Empty;
 
             return $"{prefix}{Environment.NewLine}{Environment.NewLine}生成的日志/报告文件：{Environment.NewLine}{preview}{suffix}{Environment.NewLine}{Environment.NewLine}请到程序目录下的 log 文件夹中自行打开。";
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            string[] units = { "B", "KB", "MB", "GB", "TB" };
+            double value = Math.Max(0, bytes);
+            var unitIndex = 0;
+
+            while (value >= 1024 && unitIndex < units.Length - 1)
+            {
+                value /= 1024;
+                unitIndex++;
+            }
+
+            var format = unitIndex == 0 ? "0" : "0.##";
+            return string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:" + format + "} {1}", value, units[unitIndex]);
         }
 
         private void TaskItemOnPropertyChanged(object? sender, PropertyChangedEventArgs e)

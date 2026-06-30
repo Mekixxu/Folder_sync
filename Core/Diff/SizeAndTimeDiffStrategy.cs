@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using FolderSync.Core.Sync;
 using FolderSync.Core.VFS;
 
 namespace FolderSync.Core.Diff
@@ -19,16 +20,22 @@ namespace FolderSync.Core.Diff
             IFileSystem sourceFs,
             IFileSystem destFs,
             bool isTwoWayOrMirror = false,
+            IProgress<TaskAnalysisProgressInfo>? progress = null,
             CancellationToken cancellationToken = default)
         {
             var actions = new List<SyncAction>();
+            long processedBytes = 0;
             
             // 使用区分大小写的忽略路径进行比较（如果是 Linux SMB 或 FTP，路径可能是大小写敏感的，但为了跨平台安全，这里暂用忽略大小写）
-            var sourceDict = sourceItems.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
-            var destDict = destinationItems.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
+            var sourceList = sourceItems.ToList();
+            var destinationList = destinationItems.ToList();
+            var totalBytes = sourceList.Where(i => !i.IsDirectory).Sum(i => i.Size)
+                + destinationList.Where(i => !i.IsDirectory).Sum(i => i.Size);
+            var sourceDict = sourceList.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
+            var destDict = destinationList.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
 
             // 1. 查找源文件在目标文件中的变化（Create 或 Update）
-            foreach (var src in sourceItems)
+            foreach (var src in sourceList)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -43,29 +50,58 @@ namespace FolderSync.Core.Diff
                             actions.Add(new SyncAction(SyncActionType.Update, src, dest));
                         }
                     }
+
+                    processedBytes += GetComparableSize(src) + GetComparableSize(dest);
+                    ReportProgress(progress, src.Path, processedBytes, totalBytes);
                 }
                 else
                 {
                     // 目标中不存在
                     actions.Add(new SyncAction(SyncActionType.Create, src, null));
+                    processedBytes += GetComparableSize(src);
+                    ReportProgress(progress, src.Path, processedBytes, totalBytes);
                 }
             }
 
             // 2. 如果开启了双向或镜像模式，目标中多余的文件需要删除
             if (isTwoWayOrMirror)
             {
-                foreach (var dest in destinationItems)
+                foreach (var dest in destinationList)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
                     if (!sourceDict.ContainsKey(dest.Path))
                     {
                         actions.Add(new SyncAction(SyncActionType.Delete, null, dest));
+                        processedBytes += GetComparableSize(dest);
+                        ReportProgress(progress, dest.Path, processedBytes, totalBytes);
                     }
                 }
             }
 
+            ReportProgress(progress, string.Empty, totalBytes, totalBytes);
+
             return Task.FromResult<IEnumerable<SyncAction>>(actions);
+        }
+
+        private static long GetComparableSize(FileItem item)
+        {
+            return item.IsDirectory ? 0L : Math.Max(0L, item.Size);
+        }
+
+        private static void ReportProgress(
+            IProgress<TaskAnalysisProgressInfo>? progress,
+            string currentPath,
+            long processedBytes,
+            long totalBytes)
+        {
+            progress?.Report(new TaskAnalysisProgressInfo
+            {
+                Phase = TaskAnalysisPhase.Comparing,
+                CurrentPath = currentPath,
+                ProcessedBytes = Math.Min(processedBytes, totalBytes),
+                TotalBytes = totalBytes
+            });
         }
     }
 }

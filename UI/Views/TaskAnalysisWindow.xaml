@@ -70,10 +70,12 @@
 
             <Border Background="#A6FFFFFF"
                     Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}">
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <ProgressBar Width="240"
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="640">
+                    <ProgressBar Width="320"
                                  Height="4"
-                                 IsIndeterminate="True"
+                                 Maximum="{Binding BusyProgressMaximum}"
+                                 Value="{Binding BusyProgressValue}"
+                                 IsIndeterminate="{Binding IsBusyProgressIndeterminate}"
                                  Foreground="{DynamicResource PrimaryHueMidBrush}" />
                     <TextBlock Margin="0,12,0,0"
                                FontWeight="SemiBold"
@@ -93,6 +95,17 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
+                    <TextBlock Margin="0,10,0,0"
+                               Text="{Binding BusyCurrentFileText}"
+                               Foreground="{StaticResource SecondaryTextBrush}"
+                               TextAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               MaxWidth="620"/>
+                    <TextBlock Margin="0,6,0,0"
+                               Text="{Binding BusyDataProgressText}"
+                               Foreground="{StaticResource SecondaryTextBrush}"
+                               TextAlignment="Center"
+                               MaxWidth="620"/>
                 </StackPanel>
             </Border>
         </Grid>

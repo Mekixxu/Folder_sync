@@ -19,19 +19,48 @@ namespace FolderSync.Core.Sync
             _taskRepository = taskRepository ?? new TaskRepository();
         }
 
-        public async Task<List<TaskAnalysisItem>> AnalyzeAsync(SyncTaskDefinition task, CancellationToken cancellationToken = default)
+        public async Task<List<TaskAnalysisItem>> AnalyzeAsync(
+            SyncTaskDefinition task,
+            CancellationToken cancellationToken = default,
+            IProgress<TaskAnalysisProgressInfo>? progress = null)
         {
             using var sourceFs = SyncTaskFactory.CreateSourceFileSystem(task);
             using var destFs = SyncTaskFactory.CreateDestFileSystem(task);
             var diff = SyncTaskFactory.CreateDiffStrategy(task.DiffStrategy);
             var filterEngine = SyncTaskFactory.CreateFilterEngine(task.FilterConfiguration ?? new DualListFilterConfiguration());
             Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null;
+            long sourceListedBytes = 0;
+            long destListedBytes = 0;
 
             await sourceFs.ConnectAsync(cancellationToken);
             await destFs.ConnectAsync(cancellationToken);
 
-            var rawSource = (await sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
-            var rawDest = (await destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var rawSource = (await sourceFs.ListFilesAsync(
+                onItemListed: item =>
+                {
+                    sourceListedBytes += GetComparableSize(item);
+                    progress?.Report(new TaskAnalysisProgressInfo
+                    {
+                        Phase = TaskAnalysisPhase.ListingSource,
+                        CurrentPath = item.Path,
+                        ProcessedBytes = sourceListedBytes,
+                        TotalBytes = 0
+                    });
+                },
+                cancellationToken: cancellationToken)).ToList();
+            var rawDest = (await destFs.ListFilesAsync(
+                onItemListed: item =>
+                {
+                    destListedBytes += GetComparableSize(item);
+                    progress?.Report(new TaskAnalysisProgressInfo
+                    {
+                        Phase = TaskAnalysisPhase.ListingDestination,
+                        CurrentPath = item.Path,
+                        ProcessedBytes = destListedBytes,
+                        TotalBytes = 0
+                    });
+                },
+                cancellationToken: cancellationToken)).ToList();
 
             var filteredSourceFiles = filterEngine.Filter(rawSource).ToList();
             var filteredDestFiles = filterEngine.Filter(rawDest).ToList();
@@ -42,7 +71,14 @@ namespace FolderSync.Core.Sync
             var rawSourceFileCount = rawSource.Count(i => !i.IsDirectory);
             var filteredSourceFileCount = filteredSourceFiles.Count(i => !i.IsDirectory);
             var isMirror = task.SyncMode == SyncMode.OneWayMirror;
-            var diffActions = (await diff.CompareAsync(filteredSource, filteredDest, sourceFs, destFs, isMirror, cancellationToken)).ToList();
+            var diffActions = (await diff.CompareAsync(
+                filteredSource,
+                filteredDest,
+                sourceFs,
+                destFs,
+                isMirror,
+                progress,
+                cancellationToken)).ToList();
 
             if (task.SyncMode == SyncMode.OneWaySendOnce)
             {
@@ -140,10 +176,22 @@ namespace FolderSync.Core.Sync
                 });
             }
 
+            progress?.Report(new TaskAnalysisProgressInfo
+            {
+                Phase = TaskAnalysisPhase.Finalizing,
+                ProcessedBytes = 1,
+                TotalBytes = 1
+            });
+
             return items
                 .OrderByDescending(i => i.ShouldSync)
                 .ThenBy(i => i.RelativePath, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        private static long GetComparableSize(FileItem item)
+        {
+            return item.IsDirectory ? 0L : Math.Max(0L, item.Size);
         }
 
         public List<TaskAnalysisItem> GetSavedAnalysis(SyncTaskDefinition task)

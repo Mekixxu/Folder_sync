@@ -122,7 +122,14 @@ namespace FolderSync.Core.Sync
             }
 
             var isMirror = _syncMode == SyncMode.OneWayMirror;
-            var actions = await _diffStrategy.CompareAsync(sourceItems, destItems, _sourceFs, _destFs, isMirror, cancellationToken);
+            var actions = await _diffStrategy.CompareAsync(
+                sourceItems,
+                destItems,
+                _sourceFs,
+                _destFs,
+                isMirror,
+                progress: null,
+                cancellationToken);
             var finalActions = StructureAwarePathHelper.OrderOneWayActions(ApplySyncModeFilter(actions, deliveredRecords));
             report.TotalActions = finalActions.Count;
             await ExecuteActionsAsync(finalActions, report, cancellationToken, deliveredRecords);
