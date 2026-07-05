@@ -16,19 +16,11 @@ namespace FolderSync.Core.Reporting
             var logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log");
             Directory.CreateDirectory(logDir);
 
-            var safeTaskId = Sanitize(taskId);
-            var safeTaskName = Sanitize(taskName);
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
-            var nonce = Guid.NewGuid().ToString("N")[..8];
-
-            // 命名规则：含任务名 + taskId + 毫秒 + 随机后缀，便于用户按文件名自行打开
-            var fileName = $"{timestamp}_{safeTaskName}_{safeTaskId}_{nonce}.txt";
-            var path = Path.Combine(logDir, fileName);
+            var path = BuildReportPath(logDir, report);
 
             var sb = new StringBuilder();
             sb.AppendLine($"TaskName: {taskName}");
             sb.AppendLine($"TaskId: {taskId}");
-            sb.AppendLine($"TaskNameSafe: {safeTaskName}");
             sb.AppendLine($"Start(Local): {report.StartTime.ToLocalTime():yyyy-MM-dd HH:mm:ss.fff}");
             sb.AppendLine($"End(Local): {report.EndTime.ToLocalTime():yyyy-MM-dd HH:mm:ss.fff}");
             sb.AppendLine($"Duration: {report.Duration.TotalSeconds:F3}s");
@@ -98,22 +90,29 @@ namespace FolderSync.Core.Reporting
             return path;
         }
 
-        private static string Sanitize(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return "unknown";
-            }
-
-            var chars = value
-                .Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)
-                .ToArray();
-            return new string(chars);
-        }
-
         private static string FormatSizeBytes(long? sizeBytes)
         {
             return sizeBytes?.ToString() ?? "(unknown)";
+        }
+
+        private static string BuildReportPath(string logDir, SyncReport report)
+        {
+            var transferredBytes = report.SuccessDetails
+                .Where(item => !item.IsDirectory && item.ActionType is FolderSync.Core.Diff.SyncActionType.Create or FolderSync.Core.Diff.SyncActionType.Update)
+                .Sum(item => item.ItemSizeBytes ?? 0L);
+
+            var timestamp = DateTime.Now;
+            while (true)
+            {
+                var fileName = $"{timestamp:yyyyMMdd_HHmmss_fffffff}_{transferredBytes}B.txt";
+                var path = Path.Combine(logDir, fileName);
+                if (!File.Exists(path))
+                {
+                    return path;
+                }
+
+                timestamp = timestamp.AddTicks(1);
+            }
         }
     }
 }
