@@ -71,13 +71,7 @@ namespace FolderSync.Core.Sync
             catch (Exception ex)
             {
                 report.ErrorMessage = ex.Message;
-                report.ErrorDetails.Add(new SyncErrorDetail
-                {
-                    ItemPath = string.Empty,
-                    Context = "Global execution failed",
-                    ErrorType = ex.GetType().FullName ?? "Exception",
-                    Message = ex.Message
-                });
+                report.AddErrorDetail(string.Empty, null, false, "Global execution failed", ex);
                 ErrorOccurred?.Invoke(this, new SyncErrorEventArgs(ex, "Global execution failed"));
             }
             finally
@@ -197,8 +191,8 @@ namespace FolderSync.Core.Sync
 
                 if (!hasPrev)
                 {
-                    if (curA != null && curB == null) ops.Add(curA.IsDirectory ? TwoWayOp.CreateDirInB(path) : TwoWayOp.CopyAToB(path));
-                    else if (curA == null && curB != null) ops.Add(curB.IsDirectory ? TwoWayOp.CreateDirInA(path) : TwoWayOp.CopyBToA(path));
+                    if (curA != null && curB == null) ops.Add(curA.IsDirectory ? TwoWayOp.CreateDirInB(path) : TwoWayOp.CopyAToB(path, curA.Size));
+                    else if (curA == null && curB != null) ops.Add(curB.IsDirectory ? TwoWayOp.CreateDirInA(path) : TwoWayOp.CopyBToA(path, curB.Size));
                     else if (curA != null && curB != null && !SnapshotEquals(curA, curB)) ops.Add(ResolveConflict(path, curA, curB));
                     continue;
                 }
@@ -226,12 +220,12 @@ namespace FolderSync.Core.Sync
                 if (curA == null && curB != null)
                 {
                     // 删除 vs 修改冲突：保数据优先（避免误删）
-                    ops.Add(curB.IsDirectory ? TwoWayOp.CreateDirInA(path) : TwoWayOp.CopyBToA(path));
+                    ops.Add(curB.IsDirectory ? TwoWayOp.CreateDirInA(path) : TwoWayOp.CopyBToA(path, curB.Size));
                     continue;
                 }
                 if (curA != null && curB == null)
                 {
-                    ops.Add(curA.IsDirectory ? TwoWayOp.CreateDirInB(path) : TwoWayOp.CopyAToB(path));
+                    ops.Add(curA.IsDirectory ? TwoWayOp.CreateDirInB(path) : TwoWayOp.CopyAToB(path, curA.Size));
                     continue;
                 }
                 if (curA != null && curB != null)
@@ -258,9 +252,9 @@ namespace FolderSync.Core.Sync
             var bTime = b.LastWriteUtc ?? DateTime.MinValue;
             if (aTime >= bTime)
             {
-                return a.IsDirectory ? TwoWayOp.CreateDirInB(path) : TwoWayOp.CopyAToB(path);
+                return a.IsDirectory ? TwoWayOp.CreateDirInB(path) : TwoWayOp.CopyAToB(path, a.Size);
             }
-            return b.IsDirectory ? TwoWayOp.CreateDirInA(path) : TwoWayOp.CopyBToA(path);
+            return b.IsDirectory ? TwoWayOp.CreateDirInA(path) : TwoWayOp.CopyBToA(path, b.Size);
         }
 
         private static TwoWayOp? ProjectAChangeToB(string path, StateSnapshot? curA, StateSnapshot? curB)
@@ -268,9 +262,9 @@ namespace FolderSync.Core.Sync
             if (curA == null)
             {
                 if (curB == null) return null;
-                return curB.IsDirectory ? TwoWayOp.DeleteDirInB(path) : TwoWayOp.DeleteFileInB(path);
+                return curB.IsDirectory ? TwoWayOp.DeleteDirInB(path) : TwoWayOp.DeleteFileInB(path, curB.Size);
             }
-            return curA.IsDirectory ? TwoWayOp.CreateDirInB(path) : TwoWayOp.CopyAToB(path);
+            return curA.IsDirectory ? TwoWayOp.CreateDirInB(path) : TwoWayOp.CopyAToB(path, curA.Size);
         }
 
         private static TwoWayOp? ProjectBChangeToA(string path, StateSnapshot? curA, StateSnapshot? curB)
@@ -278,9 +272,9 @@ namespace FolderSync.Core.Sync
             if (curB == null)
             {
                 if (curA == null) return null;
-                return curA.IsDirectory ? TwoWayOp.DeleteDirInA(path) : TwoWayOp.DeleteFileInA(path);
+                return curA.IsDirectory ? TwoWayOp.DeleteDirInA(path) : TwoWayOp.DeleteFileInA(path, curA.Size);
             }
-            return curB.IsDirectory ? TwoWayOp.CreateDirInA(path) : TwoWayOp.CopyBToA(path);
+            return curB.IsDirectory ? TwoWayOp.CreateDirInA(path) : TwoWayOp.CopyBToA(path, curB.Size);
         }
 
         private async Task<Dictionary<string, StateSnapshot>> BuildSnapshotsAsync(
@@ -318,34 +312,42 @@ namespace FolderSync.Core.Sync
                         case TwoWayOpKind.CreateDirInA:
                             await _sourceFs.CreateDirectoryAsync(op.Path, cancellationToken);
                             report.CreatedFiles++;
+                            report.AddSuccessDetail(op.Path, op.Size, op.IsDirectory, $"Two-way operation succeeded: {op.Kind}", MapToSyncActionType(op.Kind));
                             break;
                         case TwoWayOpKind.CreateDirInB:
                             await _destFs.CreateDirectoryAsync(op.Path, cancellationToken);
                             report.CreatedFiles++;
+                            report.AddSuccessDetail(op.Path, op.Size, op.IsDirectory, $"Two-way operation succeeded: {op.Kind}", MapToSyncActionType(op.Kind));
                             break;
                         case TwoWayOpKind.CopyAToB:
                             await CopyFileAsync(_sourceFs, _destFs, op.Path, cancellationToken);
                             report.UpdatedFiles++;
+                            report.AddSuccessDetail(op.Path, op.Size, op.IsDirectory, $"Two-way operation succeeded: {op.Kind}", MapToSyncActionType(op.Kind));
                             break;
                         case TwoWayOpKind.CopyBToA:
                             await CopyFileAsync(_destFs, _sourceFs, op.Path, cancellationToken);
                             report.UpdatedFiles++;
+                            report.AddSuccessDetail(op.Path, op.Size, op.IsDirectory, $"Two-way operation succeeded: {op.Kind}", MapToSyncActionType(op.Kind));
                             break;
                         case TwoWayOpKind.DeleteFileInA:
                             await _sourceFs.DeleteFileAsync(op.Path, cancellationToken);
                             report.DeletedFiles++;
+                            report.AddSuccessDetail(op.Path, op.Size, op.IsDirectory, $"Two-way operation succeeded: {op.Kind}", MapToSyncActionType(op.Kind));
                             break;
                         case TwoWayOpKind.DeleteFileInB:
                             await _destFs.DeleteFileAsync(op.Path, cancellationToken);
                             report.DeletedFiles++;
+                            report.AddSuccessDetail(op.Path, op.Size, op.IsDirectory, $"Two-way operation succeeded: {op.Kind}", MapToSyncActionType(op.Kind));
                             break;
                         case TwoWayOpKind.DeleteDirInA:
                             await _sourceFs.DeleteDirectoryAsync(op.Path, cancellationToken);
                             report.DeletedFiles++;
+                            report.AddSuccessDetail(op.Path, op.Size, op.IsDirectory, $"Two-way operation succeeded: {op.Kind}", MapToSyncActionType(op.Kind));
                             break;
                         case TwoWayOpKind.DeleteDirInB:
                             await _destFs.DeleteDirectoryAsync(op.Path, cancellationToken);
                             report.DeletedFiles++;
+                            report.AddSuccessDetail(op.Path, op.Size, op.IsDirectory, $"Two-way operation succeeded: {op.Kind}", MapToSyncActionType(op.Kind));
                             break;
                     }
                 }
@@ -356,13 +358,7 @@ namespace FolderSync.Core.Sync
                 catch (Exception ex)
                 {
                     report.FailedFiles++;
-                    report.ErrorDetails.Add(new SyncErrorDetail
-                    {
-                        ItemPath = op.Path,
-                        Context = $"Two-way operation failed: {op.Kind}",
-                        ErrorType = ex.GetType().FullName ?? "Exception",
-                        Message = ex.Message
-                    });
+                    report.AddErrorDetail(op.Path, op.Size, op.IsDirectory, $"Two-way operation failed: {op.Kind}", ex);
                     ErrorOccurred?.Invoke(this, new SyncErrorEventArgs(ex, $"Two-way operation failed: {op.Kind} {op.Path}"));
                 }
 
@@ -447,6 +443,12 @@ namespace FolderSync.Core.Sync
                                             deliveredRecords[action.SourceItem.Path] = directoryRecord;
                                         }
                                     }
+                                    report.AddSuccessDetail(
+                                        action.SourceItem.Path,
+                                        action.SourceItem.Size,
+                                        action.SourceItem.IsDirectory,
+                                        "One-way operation succeeded",
+                                        action.ActionType);
                                 }
                                 else
                                 {
@@ -466,6 +468,12 @@ namespace FolderSync.Core.Sync
                                     }
                                     if (action.ActionType == SyncActionType.Create) report.CreatedFiles++;
                                     else report.UpdatedFiles++;
+                                    report.AddSuccessDetail(
+                                        action.SourceItem.Path,
+                                        action.SourceItem.Size,
+                                        action.SourceItem.IsDirectory,
+                                        "One-way operation succeeded",
+                                        action.ActionType);
                                 }
                             }
                             break;
@@ -475,6 +483,12 @@ namespace FolderSync.Core.Sync
                                 if (action.DestinationItem.IsDirectory) await _destFs.DeleteDirectoryAsync(action.DestinationItem.Path, cancellationToken);
                                 else await _destFs.DeleteFileAsync(action.DestinationItem.Path, cancellationToken);
                                 report.DeletedFiles++;
+                                report.AddSuccessDetail(
+                                    action.DestinationItem.Path,
+                                    action.DestinationItem.Size,
+                                    action.DestinationItem.IsDirectory,
+                                    "One-way operation succeeded",
+                                    action.ActionType);
                             }
                             break;
                     }
@@ -486,13 +500,13 @@ namespace FolderSync.Core.Sync
                 catch (Exception ex)
                 {
                     report.FailedFiles++;
-                    report.ErrorDetails.Add(new SyncErrorDetail
-                    {
-                        ItemPath = itemName,
-                        Context = $"Failed to process {itemName}",
-                        ErrorType = ex.GetType().FullName ?? "Exception",
-                        Message = ex.Message
-                    });
+                    var failedItem = action.SourceItem ?? action.DestinationItem;
+                    report.AddErrorDetail(
+                        itemName,
+                        failedItem?.Size,
+                        failedItem?.IsDirectory ?? false,
+                        $"Failed to process {itemName}",
+                        ex);
                     ErrorOccurred?.Invoke(this, new SyncErrorEventArgs(ex, $"Failed to process {itemName}"));
                 }
                 completed++;
@@ -521,21 +535,25 @@ namespace FolderSync.Core.Sync
         {
             public TwoWayOpKind Kind { get; }
             public string Path { get; }
+            public bool IsDirectory { get; }
+            public long Size { get; }
 
-            private TwoWayOp(TwoWayOpKind kind, string path)
+            private TwoWayOp(TwoWayOpKind kind, string path, bool isDirectory, long size)
             {
                 Kind = kind;
                 Path = path;
+                IsDirectory = isDirectory;
+                Size = size;
             }
 
-            public static TwoWayOp CreateDirInA(string path) => new(TwoWayOpKind.CreateDirInA, path);
-            public static TwoWayOp CreateDirInB(string path) => new(TwoWayOpKind.CreateDirInB, path);
-            public static TwoWayOp CopyAToB(string path) => new(TwoWayOpKind.CopyAToB, path);
-            public static TwoWayOp CopyBToA(string path) => new(TwoWayOpKind.CopyBToA, path);
-            public static TwoWayOp DeleteFileInA(string path) => new(TwoWayOpKind.DeleteFileInA, path);
-            public static TwoWayOp DeleteFileInB(string path) => new(TwoWayOpKind.DeleteFileInB, path);
-            public static TwoWayOp DeleteDirInA(string path) => new(TwoWayOpKind.DeleteDirInA, path);
-            public static TwoWayOp DeleteDirInB(string path) => new(TwoWayOpKind.DeleteDirInB, path);
+            public static TwoWayOp CreateDirInA(string path) => new(TwoWayOpKind.CreateDirInA, path, true, 0);
+            public static TwoWayOp CreateDirInB(string path) => new(TwoWayOpKind.CreateDirInB, path, true, 0);
+            public static TwoWayOp CopyAToB(string path, long size) => new(TwoWayOpKind.CopyAToB, path, false, size);
+            public static TwoWayOp CopyBToA(string path, long size) => new(TwoWayOpKind.CopyBToA, path, false, size);
+            public static TwoWayOp DeleteFileInA(string path, long size) => new(TwoWayOpKind.DeleteFileInA, path, false, size);
+            public static TwoWayOp DeleteFileInB(string path, long size) => new(TwoWayOpKind.DeleteFileInB, path, false, size);
+            public static TwoWayOp DeleteDirInA(string path) => new(TwoWayOpKind.DeleteDirInA, path, true, 0);
+            public static TwoWayOp DeleteDirInB(string path) => new(TwoWayOpKind.DeleteDirInB, path, true, 0);
         }
     }
 }

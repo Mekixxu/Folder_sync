@@ -237,6 +237,12 @@ namespace FolderSync.Core.Sync
                                 else await sourceFs.DeleteFileAsync(item.RelativePath, cancellationToken);
                             }
                             report.DeletedFiles++;
+                            report.AddSuccessDetail(
+                                item.RelativePath,
+                                item.DestSize ?? item.SourceSize,
+                                item.IsDirectory,
+                                "Manual selected execution succeeded",
+                                SyncActionType.Delete);
                             continue;
                         }
 
@@ -274,6 +280,12 @@ namespace FolderSync.Core.Sync
 
                         if (item.ActionType == SyncActionType.Create) report.CreatedFiles++;
                         else report.UpdatedFiles++;
+                        report.AddSuccessDetail(
+                            item.RelativePath,
+                            ResolveExecutedItemSize(item),
+                            item.IsDirectory,
+                            "Manual selected execution succeeded",
+                            item.ActionType);
                     }
                     catch (OperationCanceledException)
                     {
@@ -282,13 +294,12 @@ namespace FolderSync.Core.Sync
                     catch (Exception ex)
                     {
                         report.FailedFiles++;
-                        report.ErrorDetails.Add(new SyncErrorDetail
-                        {
-                            ItemPath = item.RelativePath,
-                            Context = "Manual selected execution failed",
-                            ErrorType = ex.GetType().FullName ?? "Exception",
-                            Message = ex.Message
-                        });
+                        report.AddErrorDetail(
+                            item.RelativePath,
+                            ResolveExecutedItemSize(item),
+                            item.IsDirectory,
+                            "Manual selected execution failed",
+                            ex);
                     }
                 }
             }
@@ -385,6 +396,23 @@ namespace FolderSync.Core.Sync
             if (s != null && d != null) return "已一致，无需同步";
             if (s == null && d != null && mode is SyncMode.OneWayIncremental or SyncMode.OneWayUpdate or SyncMode.OneWaySendOnce) return "仅目标端存在，当前模式不删除";
             return "无需同步";
+        }
+
+        private static long? ResolveExecutedItemSize(TaskAnalysisItem item)
+        {
+            if (item.IsDirectory)
+            {
+                return 0;
+            }
+
+            if (item.ActionType == SyncActionType.Delete)
+            {
+                return item.DestSize ?? item.SourceSize;
+            }
+
+            return item.Direction == AnalysisDirection.BToA
+                ? item.DestSize ?? item.SourceSize
+                : item.SourceSize ?? item.DestSize;
         }
 
         private static TaskAnalysisItem ToAnalysisItem(SavedTaskAnalysisItem item)

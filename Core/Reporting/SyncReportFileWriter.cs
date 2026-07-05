@@ -41,6 +41,24 @@ namespace FolderSync.Core.Reporting
             }
 
             sb.AppendLine();
+            sb.AppendLine("SuccessDetails:");
+            if (!report.SuccessDetails.Any())
+            {
+                sb.AppendLine("  (none)");
+            }
+            else
+            {
+                foreach (var success in report.SuccessDetails)
+                {
+                    sb.AppendLine($"  - [{success.OccurredAtUtc:yyyy-MM-dd HH:mm:ss.fff}Z] Action={success.ActionType?.ToString() ?? "Unknown"} Type={(success.IsDirectory ? "Directory" : "File")}");
+                    sb.AppendLine($"    Name={success.ItemName}");
+                    sb.AppendLine($"    SizeBytes={FormatSizeBytes(success.ItemSizeBytes)}");
+                    sb.AppendLine($"    Path={success.ItemPath}");
+                    sb.AppendLine($"    Context={success.Context}");
+                }
+            }
+
+            sb.AppendLine();
             sb.AppendLine("WarningDetails:");
             if (!report.WarningDetails.Any())
             {
@@ -66,9 +84,12 @@ namespace FolderSync.Core.Reporting
             {
                 foreach (var err in report.ErrorDetails)
                 {
-                    sb.AppendLine($"  - [{err.OccurredAtUtc:yyyy-MM-dd HH:mm:ss.fff}Z] Item={err.ItemPath}");
+                    sb.AppendLine($"  - [{err.OccurredAtUtc:yyyy-MM-dd HH:mm:ss.fff}Z] ItemType={(err.IsDirectory ? "Directory" : "File")}");
+                    sb.AppendLine($"    Name={err.ItemName}");
+                    sb.AppendLine($"    SizeBytes={FormatSizeBytes(err.ItemSizeBytes)}");
+                    sb.AppendLine($"    Path={err.ItemPath}");
                     sb.AppendLine($"    Context={err.Context}");
-                    sb.AppendLine($"    Type={err.ErrorType}");
+                    sb.AppendLine($"    ErrorType={err.ErrorType}");
                     sb.AppendLine($"    Message={err.Message}");
                 }
             }
@@ -88,6 +109,11 @@ namespace FolderSync.Core.Reporting
                 .Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)
                 .ToArray();
             return new string(chars);
+        }
+
+        private static string FormatSizeBytes(long? sizeBytes)
+        {
+            return sizeBytes?.ToString() ?? "(unknown)";
         }
     }
 }

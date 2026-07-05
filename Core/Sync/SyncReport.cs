@@ -23,6 +23,7 @@ namespace FolderSync.Core.Sync
         public int FailedFiles { get; set; }
 
         public string ErrorMessage { get; set; } = string.Empty;
+        public List<SyncSuccessDetail> SuccessDetails { get; } = new();
         public List<SyncErrorDetail> ErrorDetails { get; } = new();
         public List<SyncWarningDetail> WarningDetails { get; } = new();
         public bool IsSuccess => string.IsNullOrEmpty(ErrorMessage) && FailedFiles == 0;
@@ -33,6 +34,71 @@ namespace FolderSync.Core.Sync
                    $"Created: {CreatedFiles}, Updated: {UpdatedFiles}, Deleted: {DeletedFiles}, SkippedDelivered: {SkippedAlreadyDelivered}, Failed: {FailedFiles}. " +
                    (IsSuccess ? "Success" : $"Error: {ErrorMessage}");
         }
+
+        public void AddSuccessDetail(
+            string itemPath,
+            long? itemSizeBytes,
+            bool isDirectory,
+            string context,
+            SyncActionType? actionType = null)
+        {
+            SuccessDetails.Add(new SyncSuccessDetail
+            {
+                ItemPath = itemPath,
+                ItemName = ResolveItemName(itemPath),
+                ItemSizeBytes = isDirectory ? 0 : itemSizeBytes,
+                IsDirectory = isDirectory,
+                Context = context,
+                ActionType = actionType
+            });
+        }
+
+        public void AddErrorDetail(
+            string itemPath,
+            long? itemSizeBytes,
+            bool isDirectory,
+            string context,
+            Exception exception)
+        {
+            ErrorDetails.Add(new SyncErrorDetail
+            {
+                ItemPath = itemPath,
+                ItemName = ResolveItemName(itemPath),
+                ItemSizeBytes = isDirectory ? 0 : itemSizeBytes,
+                IsDirectory = isDirectory,
+                Context = context,
+                ErrorType = exception.GetType().FullName ?? "Exception",
+                Message = exception.Message
+            });
+        }
+
+        private static string ResolveItemName(string itemPath)
+        {
+            if (string.IsNullOrWhiteSpace(itemPath))
+            {
+                return "(unknown)";
+            }
+
+            var normalized = itemPath.Replace('\\', '/').Trim().TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                return "(root)";
+            }
+
+            var lastSlash = normalized.LastIndexOf('/');
+            return lastSlash >= 0 ? normalized[(lastSlash + 1)..] : normalized;
+        }
+    }
+
+    public class SyncSuccessDetail
+    {
+        public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
+        public string ItemName { get; set; } = string.Empty;
+        public string ItemPath { get; set; } = string.Empty;
+        public long? ItemSizeBytes { get; set; }
+        public bool IsDirectory { get; set; }
+        public string Context { get; set; } = string.Empty;
+        public SyncActionType? ActionType { get; set; }
     }
 
     /// <summary>
@@ -41,7 +107,10 @@ namespace FolderSync.Core.Sync
     public class SyncErrorDetail
     {
         public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
+        public string ItemName { get; set; } = string.Empty;
         public string ItemPath { get; set; } = string.Empty;
+        public long? ItemSizeBytes { get; set; }
+        public bool IsDirectory { get; set; }
         public string Context { get; set; } = string.Empty;
         public string ErrorType { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
