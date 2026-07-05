@@ -69,12 +69,12 @@ namespace FolderSync.Core.Sync
                     && !(deliveredRecords?.ContainsKey(a.SourceItem.Path) ?? false),
                 _ => true
             }).ToDictionary(
-                a => a.SourceItem?.Path ?? a.DestinationItem?.Path ?? string.Empty,
+                a => NormalizeAnalysisPath(a.SourceItem?.Path ?? a.DestinationItem?.Path ?? string.Empty),
                 a => a,
                 StringComparer.OrdinalIgnoreCase);
 
-            var srcMap = rawSource.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
-            var dstMap = rawDest.ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
+            var srcMap = BuildPathMap(rawSource);
+            var dstMap = BuildPathMap(rawDest);
             var allPaths = new HashSet<string>(srcMap.Keys, StringComparer.OrdinalIgnoreCase);
             allPaths.UnionWith(dstMap.Keys);
 
@@ -90,7 +90,7 @@ namespace FolderSync.Core.Sync
 
                 var item = new TaskAnalysisItem
                 {
-                    RelativePath = path,
+                    RelativePath = s?.Path ?? d?.Path ?? act?.SourceItem?.Path ?? act?.DestinationItem?.Path ?? path,
                     IsDirectory = s?.IsDirectory ?? d?.IsDirectory ?? false,
                     SourceSize = s?.Size,
                     DestSize = d?.Size,
@@ -423,6 +423,22 @@ namespace FolderSync.Core.Sync
                 HasWarning = item.HasWarning,
                 ShouldSync = item.ShouldSync
             };
+        }
+
+        private static Dictionary<string, FileItem> BuildPathMap(IEnumerable<FileItem> items)
+        {
+            var result = new Dictionary<string, FileItem>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in items)
+            {
+                result[NormalizeAnalysisPath(item.Path)] = item;
+            }
+
+            return result;
+        }
+
+        private static string NormalizeAnalysisPath(string path)
+        {
+            return StructureAwarePathHelper.NormalizePath(path);
         }
     }
 }

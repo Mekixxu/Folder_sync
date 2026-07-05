@@ -26,15 +26,16 @@ namespace FolderSync.Core.Diff
             // 使用区分大小写的忽略路径进行比较（如果是 Linux SMB 或 FTP，路径可能是大小写敏感的，但为了跨平台安全，这里暂用忽略大小写）
             var sourceList = sourceItems.ToList();
             var destinationList = destinationItems.ToList();
-            var sourceDict = sourceList.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
-            var destDict = destinationList.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
+            var sourceDict = BuildPathMap(sourceList);
+            var destDict = BuildPathMap(destinationList);
 
             // 1. 查找源文件在目标文件中的变化（Create 或 Update）
             foreach (var src in sourceList)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (destDict.TryGetValue(src.Path, out var dest))
+                var normalizedSourcePath = NormalizePath(src.Path);
+                if (destDict.TryGetValue(normalizedSourcePath, out var dest))
                 {
                     // 都是文件，且大小不同，或者源文件更新于目标文件
                     if (!src.IsDirectory && !dest.IsDirectory)
@@ -60,7 +61,7 @@ namespace FolderSync.Core.Diff
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    if (!sourceDict.ContainsKey(dest.Path))
+                    if (!sourceDict.ContainsKey(NormalizePath(dest.Path)))
                     {
                         actions.Add(new SyncAction(SyncActionType.Delete, null, dest));
                     }
@@ -68,6 +69,27 @@ namespace FolderSync.Core.Diff
             }
 
             return Task.FromResult<IEnumerable<SyncAction>>(actions);
+        }
+
+        private static Dictionary<string, FileItem> BuildPathMap(IEnumerable<FileItem> items)
+        {
+            var result = new Dictionary<string, FileItem>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in items)
+            {
+                result[NormalizePath(item.Path)] = item;
+            }
+
+            return result;
+        }
+
+        private static string NormalizePath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || path == "." || path == "/" || path == "\\")
+            {
+                return string.Empty;
+            }
+
+            return path.Replace('\\', '/').Trim().Trim('/');
         }
     }
 }

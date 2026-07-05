@@ -26,14 +26,15 @@ namespace FolderSync.Core.Diff
             
             var sourceList = sourceItems.ToList();
             var destinationList = destinationItems.ToList();
-            var sourceDict = sourceList.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
-            var destDict = destinationList.ToDictionary(i => i.Path, StringComparer.OrdinalIgnoreCase);
+            var sourceDict = BuildPathMap(sourceList);
+            var destDict = BuildPathMap(destinationList);
 
             foreach (var src in sourceList)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (destDict.TryGetValue(src.Path, out var dest))
+                var normalizedSourcePath = NormalizePath(src.Path);
+                if (destDict.TryGetValue(normalizedSourcePath, out var dest))
                 {
                     if (!src.IsDirectory && !dest.IsDirectory)
                     {
@@ -74,7 +75,7 @@ namespace FolderSync.Core.Diff
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    if (!sourceDict.ContainsKey(dest.Path))
+                    if (!sourceDict.ContainsKey(NormalizePath(dest.Path)))
                     {
                         actions.Add(new SyncAction(SyncActionType.Delete, null, dest));
                     }
@@ -107,6 +108,27 @@ namespace FolderSync.Core.Diff
                 hasher.Append(buffer.AsSpan(0, bytesRead));
             }
             return hasher.GetCurrentHash();
+        }
+
+        private static Dictionary<string, FileItem> BuildPathMap(IEnumerable<FileItem> items)
+        {
+            var result = new Dictionary<string, FileItem>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in items)
+            {
+                result[NormalizePath(item.Path)] = item;
+            }
+
+            return result;
+        }
+
+        private static string NormalizePath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || path == "." || path == "/" || path == "\\")
+            {
+                return string.Empty;
+            }
+
+            return path.Replace('\\', '/').Trim().Trim('/');
         }
     }
 }

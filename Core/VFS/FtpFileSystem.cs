@@ -26,6 +26,9 @@ namespace FolderSync.Core.VFS
             _host = host;
             _port = port;
             _client = new AsyncFtpClient(host, username, password, port);
+            _client.Config.TimeConversion = FtpDate.UTC;
+            _client.Config.ServerTimeZone = TimeZoneInfo.Utc;
+            _client.Config.ClientTimeZone = TimeZoneInfo.Utc;
             
             // 确保基础路径始终以 "/" 结尾
             _basePath = string.IsNullOrWhiteSpace(basePath) ? "/" : basePath;
@@ -73,7 +76,7 @@ namespace FolderSync.Core.VFS
                 Name = item.Name,
                 Path = relativePath,
                 IsDirectory = item.Type == FtpObjectType.Directory,
-                LastWriteTime = item.Modified,
+                LastWriteTime = NormalizeTimestamp(item.Modified),
                 Size = item.Size
             };
         }
@@ -197,7 +200,7 @@ namespace FolderSync.Core.VFS
 
                     foreach (var item in ftpItems)
                     {
-                        if (!TryMapListItem(item, out var mapped))
+                        if (!TryMapListItem(item, fullPath, out var mapped))
                         {
                             continue;
                         }
@@ -284,7 +287,7 @@ namespace FolderSync.Core.VFS
             return result;
         }
 
-        private bool TryMapListItem(FtpListItem item, out FileItem mappedItem)
+        private bool TryMapListItem(FtpListItem item, string currentDirectoryFullPath, out FileItem mappedItem)
         {
             mappedItem = null!;
 
@@ -299,13 +302,13 @@ namespace FolderSync.Core.VFS
                 return false;
             }
 
-            var fullName = ResolveFullName(item);
+            var fullName = ResolveFullName(item, currentDirectoryFullPath);
             mappedItem = new FileItem
             {
                 Name = item.Name,
                 Path = GetRelativePath(fullName),
                 IsDirectory = item.Type == FtpObjectType.Directory,
-                LastWriteTime = item.Modified,
+                LastWriteTime = NormalizeTimestamp(item.Modified),
                 Size = item.Size
             };
 
@@ -327,7 +330,7 @@ namespace FolderSync.Core.VFS
             }
         }
 
-        private string ResolveFullName(FtpListItem item)
+        private string ResolveFullName(FtpListItem item, string currentDirectoryFullPath)
         {
             if (!string.IsNullOrWhiteSpace(item.FullName))
             {
@@ -336,10 +339,10 @@ namespace FolderSync.Core.VFS
 
             if (string.IsNullOrWhiteSpace(item.Name))
             {
-                return _basePath.TrimEnd('/');
+                return NormalizePath(currentDirectoryFullPath);
             }
 
-            return NormalizePath($"{_basePath.TrimEnd('/')}/{item.Name.TrimStart('/')}");
+            return NormalizePath($"{NormalizePath(currentDirectoryFullPath).TrimEnd('/')}/{item.Name.TrimStart('/')}");
         }
 
         private string ResolveRelativePathForObjectInfo(FtpListItem item, string requestedRelativePath)
@@ -422,6 +425,21 @@ namespace FolderSync.Core.VFS
             }
 
             return normalized.TrimEnd('/');
+        }
+
+        private static DateTime NormalizeTimestamp(DateTime timestamp)
+        {
+            if (timestamp == DateTime.MinValue)
+            {
+                return timestamp;
+            }
+
+            return timestamp.Kind switch
+            {
+                DateTimeKind.Utc => timestamp,
+                DateTimeKind.Local => timestamp.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(timestamp, DateTimeKind.Utc)
+            };
         }
 
         private string DescribeDirectory(string fullPath)
