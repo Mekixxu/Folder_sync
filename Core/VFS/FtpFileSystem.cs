@@ -334,7 +334,13 @@ namespace FolderSync.Core.VFS
         {
             if (!string.IsNullOrWhiteSpace(item.FullName))
             {
-                return NormalizePath(item.FullName);
+                var rawFullName = item.FullName.Replace('\\', '/').Trim();
+                if (rawFullName.StartsWith("/", StringComparison.Ordinal))
+                {
+                    return NormalizePath(rawFullName);
+                }
+
+                return NormalizePath($"{NormalizePath(currentDirectoryFullPath).TrimEnd('/')}/{rawFullName.TrimStart('/')}");
             }
 
             if (string.IsNullOrWhiteSpace(item.Name))
@@ -374,9 +380,15 @@ namespace FolderSync.Core.VFS
             var normalizedBasePath = NormalizePath(_basePath);
             var normalizedFullPath = NormalizePath(fullPath);
 
-            if (normalizedFullPath.StartsWith(normalizedBasePath, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(normalizedFullPath, normalizedBasePath, StringComparison.OrdinalIgnoreCase))
             {
-                var rel = normalizedFullPath.Substring(normalizedBasePath.Length);
+                return string.Empty;
+            }
+
+            var normalizedBasePrefix = normalizedBasePath == "/" ? "/" : normalizedBasePath + "/";
+            if (normalizedFullPath.StartsWith(normalizedBasePrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                var rel = normalizedFullPath.Substring(normalizedBasePrefix.Length);
                 return rel.TrimStart('/');
             }
 
