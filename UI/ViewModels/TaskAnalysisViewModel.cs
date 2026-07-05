@@ -194,6 +194,7 @@ namespace FolderSync.UI.ViewModels
                 return;
             }
 
+            var shouldReloadAnalysis = false;
             try
             {
                 using var operationCts = BeginOperation();
@@ -219,7 +220,7 @@ namespace FolderSync.UI.ViewModels
                     "执行完成",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
-                await LoadAnalysisAsync(useSavedIfAvailable: false);
+                shouldReloadAnalysis = true;
             }
             catch (OperationCanceledException)
             {
@@ -238,6 +239,11 @@ namespace FolderSync.UI.ViewModels
                 IsExecuting = false;
                 EndOperation();
                 CommandManager.InvalidateRequerySuggested();
+            }
+
+            if (shouldReloadAnalysis)
+            {
+                await LoadAnalysisAsync(useSavedIfAvailable: false);
             }
         }
 
