@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Windows;
 
 namespace FolderSync;
@@ -12,6 +13,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Closing += MainWindow_Closing;
+        VersionTextBlock.Text = $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3)} Beta";
     }
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)

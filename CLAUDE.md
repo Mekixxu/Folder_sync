@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# Folder Sync 程序架构与技术栈分析
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# Folder Sync 程序架构与技术栈分析
 
 ## 1. 需求分析总结
 
@@ -60,6 +60,7 @@ Folder_sync/
 ├─ UI/
 │  └─ Services/
 ├─ .trae/specs/
+├─ .trae/documents/
 └─ publish/
 ```
 
@@ -70,8 +71,8 @@ Folder_sync/
   - 目录：`UI/Views`, `UI/ViewModels`, `UI/Converters`, `UI/Localization`, `UI/Services`
   - 关键文件：
     - `MainWindow.xaml` / `MainViewModel.cs`
-    - `DashboardView*`, `TasksView*`, `TaskEditorView*`, `LogsView*`, `SettingsView*`
-    - `TrayIconService.cs`, `StartupRegistrationService.cs`
+    - `DashboardView*`, `TasksView*`, `TaskEditorView*`, `TaskAnalysisWindow`, `LogsView*`, `SettingsView*`
+    - `TaskAnalysisViewModel.cs`, `TrayIconService.cs`, `StartupRegistrationService.cs`
 
 - **应用壳层 / 生命周期**
   - 职责：应用启动与退出、日志初始化、调度器生命周期、启动参数解析、主窗口关闭拦截与托盘常驻行为。
@@ -82,7 +83,7 @@ Folder_sync/
     - `UI/Services/TrayIconService.cs`, `UI/Services/StartupRegistrationService.cs`
 
 - **VFS 抽象层**
-  - 职责：统一 Local/SMB/FTP 的读写接口；FTP 递归列举采用应用层逐层遍历，并在异常子目录场景下记录 warning 后跳过，避免整次分析因单个慢目录超时失败；单文件信息查询在服务端返回异常路径元数据时会回退到调用方请求路径，避免分析链路把已存在目标误判为缺失。
+  - 职责：统一 Local/SMB/FTP 的读写接口；FTP 递归列举采用应用层逐层遍历，并在异常子目录场景下记录 warning 后跳过，避免整次分析因单个慢目录超时失败；单文件信息查询在服务端返回异常路径元数据时会回退到调用方请求路径，避免分析链路把已存在目标误判为缺失；目录列举在服务端未返回 `FullName` 时会基于当前目录补全绝对路径，避免嵌套目录内已存在文件被误判为仅源端存在。
   - 目录：`Core/VFS`
   - 关键文件：`IFileSystem.cs`, `LocalFileSystem.cs`, `FtpFileSystem.cs`, `FileItem.cs`
 
@@ -103,10 +104,10 @@ Folder_sync/
     - `ChecksumDiffStrategy.cs`（固定 xxHash64）
     - `IDiffStrategy.cs`, `SyncActionType.cs`, `SyncAction.cs`
 
-- **同步执行器**
-  - 职责：执行实际复制/删除，收集进度与错误；双向模式使用 SQLite 基线可靠判定；单向一次性同步使用 SQLite 投递状态避免重复补发。
+- **同步执行器 / 分析服务**
+  - 职责：执行实际复制/删除，收集进度与错误；双向模式使用 SQLite 基线可靠判定；单向一次性同步使用 SQLite 投递状态避免重复补发；分析与执行共享"结构感知"路径展开（父目录自动并入集合），保证目录结构完整。
   - 目录：`Core/Sync`
-  - 关键文件：`SyncExecutor.cs`, `SyncReport.cs`, `SyncMode.cs`, `TwoWayStateStore.cs`, `OneWayDeliveryStateStore.cs`, `SyncTaskFactory.cs`
+  - 关键文件：`SyncExecutor.cs`, `SyncReport.cs`, `SyncMode.cs`, `TwoWayStateStore.cs`, `OneWayDeliveryStateStore.cs`, `SyncTaskFactory.cs`, `TaskAnalysisService.cs`, `TaskAnalysisModels.cs`, `StructureAwarePathHelper.cs`
 
 - **任务与设置持久化层**
   - 职责：任务定义与应用设置落盘（JSON），供 UI 与调度层使用；FTP 密码使用 Windows DPAPI 加密后保存。
@@ -153,7 +154,10 @@ Core/
 │  ├─ SyncReport.cs
 │  ├─ TwoWayStateStore.cs
 │  ├─ OneWayDeliveryStateStore.cs
-│  └─ SyncTaskFactory.cs
+│  ├─ SyncTaskFactory.cs
+│  ├─ TaskAnalysisService.cs
+│  ├─ TaskAnalysisModels.cs
+│  └─ StructureAwarePathHelper.cs
 ├─ Config/
 │  ├─ SyncTaskDefinition.cs
 │  ├─ TaskRepository.cs
@@ -183,12 +187,14 @@ UI/
 │  ├─ DashboardViewModel.cs
 │  ├─ TasksViewModel.cs
 │  ├─ TaskEditorViewModel.cs
+│  ├─ TaskAnalysisViewModel.cs
 │  ├─ LogsViewModel.cs
 │  └─ SettingsViewModel.cs
 └─ Views/
    ├─ DashboardView.xaml(.cs)
    ├─ TasksView.xaml(.cs)
    ├─ TaskEditorView.xaml(.cs)
+   ├─ TaskAnalysisWindow.xaml(.cs)
    ├─ LogsView.xaml(.cs)
    └─ SettingsView.xaml(.cs)
 ```
@@ -223,7 +229,8 @@ UI/
 24. 已完成：当用户停止同步时，如果当前文件正处于传输中，复制层会捕获取消并主动删除目标端未传输完整的文件，避免残留半截文件。
 25. 已完成：分析与同步改为“结构感知”策略。若某个文件命中过滤规则，其所有父目录会自动并入分析/同步集合；目标端仅按完整相对路径匹配，不会把根目录下的同名文件误当成子目录内文件的匹配项；执行顺序也会保证先创建目录，再同步子文件。
 26. 已完成：回滚分析阶段的当前文件实时提示与逐项进度回调，避免 WPF 频繁刷新对大目录/FTP 分析造成肉眼可见的性能损失；分析阶段恢复为仅显示总体状态文案与轻量进度条。
-27. 待增强：双向冲突策略可扩展（例如保留双版本、副本命名策略、交互式冲突处理）。
+27. 已完成：修复 FTP 递归列举在部分服务端未返回条目 `FullName` 时的路径补全错误；嵌套目录中的目标文件会基于当前目录正确还原相对路径，避免 `Local -> FTP` 分析把 FTP 已存在文件误判为“仅源端存在，需创建”。
+28. 待增强：双向冲突策略可扩展（例如保留双版本、副本命名策略、交互式冲突处理）。
 
 ---
 
