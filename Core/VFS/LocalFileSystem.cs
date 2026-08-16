@@ -200,15 +200,22 @@ namespace FolderSync.Core.VFS
             {
                 return _basePath;
             }
-            
+
             // 安全合并，防止使用 .. 跳出 BasePath
-            var combinedPath = Path.GetFullPath(Path.Combine(_basePath, relativePath.TrimStart('/', '\\')));
-            
-            if (!combinedPath.StartsWith(_basePath, StringComparison.OrdinalIgnoreCase))
+            var baseRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_basePath));
+            var combinedPath = Path.GetFullPath(Path.Combine(baseRoot, relativePath.TrimStart('/', '\\')));
+
+            var relative = Path.GetRelativePath(baseRoot, combinedPath);
+            var isRoot = relative == ".";
+            var isChild = !Path.IsPathRooted(relative)
+                          && relative != ".."
+                          && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+
+            if (!isRoot && !isChild)
             {
                 throw new UnauthorizedAccessException($"Access to path '{relativePath}' is denied as it's outside the base directory.");
             }
-            
+
             return combinedPath;
         }
 

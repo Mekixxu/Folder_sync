@@ -179,9 +179,28 @@ namespace FolderSync.Core.VFS
             {
                 return _basePath.TrimEnd('/');
             }
-            
-            var relPathNormalized = relativePath.TrimStart('/', '\\').Replace('\\', '/');
-            return _basePath + relPathNormalized;
+
+            var relNormalized = relativePath.Replace('\\', '/').Trim().TrimStart('/');
+            var baseSegments = _basePath.Split('/', StringSplitOptions.RemoveEmptyEntries).ToList();
+            var segments = relNormalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var combined = new List<string>(baseSegments);
+
+            foreach (var segment in segments)
+            {
+                if (segment is "." or "")
+                {
+                    continue;
+                }
+
+                if (segment == "..")
+                {
+                    throw new UnauthorizedAccessException($"FTP path '{relativePath}' contains '..' and is not allowed.");
+                }
+
+                combined.Add(segment);
+            }
+
+            return "/" + string.Join('/', combined);
         }
 
         private async Task<List<FileItem>> ListSingleDirectoryAsync(
