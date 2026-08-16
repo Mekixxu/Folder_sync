@@ -243,7 +243,7 @@ namespace FolderSync.UI.ViewModels
             TestSourceFtpConnectionCommand = new RelayCommand(async _ => await TestFtpConnectionAsync(isSource: true), _ => !IsTestingFtpConnection);
             TestDestFtpConnectionCommand = new RelayCommand(async _ => await TestFtpConnectionAsync(isSource: false), _ => !IsTestingFtpConnection);
             CancelCommand = new RelayCommand(_ => goBackAction?.Invoke());
-            SaveTaskCommand = new RelayCommand(SaveTask, CanSaveTask);
+            SaveTaskCommand = new RelayCommand(async _ => await SaveTaskAsync(_), CanSaveTask);
 
             if (editingTask != null)
             {
@@ -272,7 +272,7 @@ namespace FolderSync.UI.ViewModels
                    !string.IsNullOrWhiteSpace(DestPath);
         }
 
-        private void SaveTask(object? parameter)
+        private async Task SaveTaskAsync(object? parameter)
         {
             if (!ValidateFtpConfiguration())
             {
@@ -300,13 +300,13 @@ namespace FolderSync.UI.ViewModels
 
                 if (task.IsManualTrigger)
                 {
-                    SchedulerManager.Instance.RemoveJobAsync(task.Id).GetAwaiter().GetResult();
+                    await SchedulerManager.Instance.RemoveJobAsync(task.Id);
                 }
                 else
                 {
                     var cron = SyncTaskFactory.ResolveCronExpression(task);
                     var executor = SyncTaskFactory.CreateExecutor(task);
-                    SchedulerManager.Instance.AddOrUpdateJobAsync(task.Id, task.TaskName, cron, executor).GetAwaiter().GetResult();
+                    await SchedulerManager.Instance.AddOrUpdateJobAsync(task.Id, task.TaskName, cron, executor);
                 }
 
                 MessageBox.Show("任务已保存。", "保存成功", MessageBoxButton.OK, MessageBoxImage.Information);

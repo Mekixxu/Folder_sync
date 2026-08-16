@@ -90,8 +90,8 @@ namespace FolderSync.UI.ViewModels
             StopCurrentOperationCommand = new RelayCommand(_ => StopCurrentOperation(), _ => CanStopCurrentOperation());
             OpenTaskAnalysisCommand = new RelayCommand(OpenTaskAnalysis, CanOpenTaskAnalysis);
             EditTaskCommand = new RelayCommand(EditTask);
-            DeleteTaskCommand = new RelayCommand(DeleteTask);
-            ResetSendOnceStateCommand = new RelayCommand(ResetSendOnceState);
+            DeleteTaskCommand = new RelayCommand(async _ => await DeleteTaskAsync(_));
+            ResetSendOnceStateCommand = new RelayCommand(async _ => await ResetSendOnceStateAsync(_));
 
             LoadTasks();
         }
@@ -155,19 +155,19 @@ namespace FolderSync.UI.ViewModels
             }
         }
 
-        private void DeleteTask(object? parameter)
+        private async Task DeleteTaskAsync(object? parameter)
         {
             if (parameter is TaskListItemViewModel task)
             {
                 try
                 {
+                    await SchedulerManager.Instance.RemoveJobAsync(task.Id);
                     _taskRepository.DeleteById(task.Id);
                     _definitions.Remove(_definitions.First(t => t.Id == task.Id));
                     task.PropertyChanged -= TaskItemOnPropertyChanged;
                     Tasks.Remove(task);
-                    SchedulerManager.Instance.RemoveJobAsync(task.Id).GetAwaiter().GetResult();
-                    _deliveryStateStore.InitializeAsync().GetAwaiter().GetResult();
-                    _deliveryStateStore.ResetTaskAsync(task.Id).GetAwaiter().GetResult();
+                    await _deliveryStateStore.InitializeAsync();
+                    await _deliveryStateStore.ResetTaskAsync(task.Id);
                     CommandManager.InvalidateRequerySuggested();
                 }
                 catch (Exception ex)
@@ -507,7 +507,7 @@ namespace FolderSync.UI.ViewModels
             }
         }
 
-        private void ResetSendOnceState(object? parameter)
+        private async Task ResetSendOnceStateAsync(object? parameter)
         {
             if (parameter is not TaskListItemViewModel taskVm)
             {
@@ -534,8 +534,8 @@ namespace FolderSync.UI.ViewModels
 
             try
             {
-                _deliveryStateStore.InitializeAsync().GetAwaiter().GetResult();
-                _deliveryStateStore.ResetTaskAsync(definition.Id).GetAwaiter().GetResult();
+                await _deliveryStateStore.InitializeAsync();
+                await _deliveryStateStore.ResetTaskAsync(definition.Id);
                 definition.SavedAnalysisItems.Clear();
                 definition.AnalysisSavedAtUtc = null;
                 _taskRepository.Upsert(definition);
