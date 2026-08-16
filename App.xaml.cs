@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
@@ -21,10 +22,22 @@ namespace FolderSync
     {
         private TrayIconService? _trayIconService;
         private bool _isExitRequested;
+        private Mutex? _singleInstanceMutex;
+        private bool _ownsSingleInstanceMutex;
 
         protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+            // 0. 单实例互斥，防止双进程并发写坏 tasks.json / SQLite / 日志
+            _singleInstanceMutex = new Mutex(true, @"Local\FolderSyncPro", out var isFirstInstance);
+            _ownsSingleInstanceMutex = isFirstInstance;
+            if (!isFirstInstance)
+            {
+                MessageBox.Show("FolderSync Pro 已在运行。", "FolderSync Pro", MessageBoxButton.OK, MessageBoxImage.Information);
+                Shutdown(-1);
+                return;
+            }
 
             // 1. 初始化 Serilog 日志记录器
             InitializeLogging();
@@ -85,7 +98,13 @@ namespace FolderSync
 
             // 刷新并关闭日志流
             Log.CloseAndFlush();
-            
+
+            if (_ownsSingleInstanceMutex)
+            {
+                _singleInstanceMutex?.ReleaseMutex();
+            }
+            _singleInstanceMutex?.Dispose();
+
             base.OnExit(e);
         }
 
