@@ -47,6 +47,7 @@ namespace FolderSync.UI.ViewModels
         public ICommand EditTaskCommand { get; }
         public ICommand DeleteTaskCommand { get; }
         public ICommand ResetSendOnceStateCommand { get; }
+        public ICommand RunNowCommand { get; }
 
         public bool IsAnalysisProgressVisible
         {
@@ -92,6 +93,7 @@ namespace FolderSync.UI.ViewModels
             EditTaskCommand = new RelayCommand(EditTask);
             DeleteTaskCommand = new RelayCommand(async _ => await DeleteTaskAsync(_));
             ResetSendOnceStateCommand = new RelayCommand(async _ => await ResetSendOnceStateAsync(_));
+            RunNowCommand = new RelayCommand(async _ => await RunNowAsync(_));
 
             LoadTasks();
         }
@@ -526,6 +528,82 @@ namespace FolderSync.UI.ViewModels
         {
             if (e.PropertyName == nameof(TaskListItemViewModel.IsSelected))
             {
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+
+        private async Task RunNowAsync(object? parameter)
+        {
+            if (parameter is not TaskListItemViewModel taskVm)
+            {
+                return;
+            }
+
+            var definition = FindDefinition(taskVm.Id);
+            if (definition == null)
+            {
+                MessageBox.Show("未找到任务定义。", "执行失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (_isBusy)
+            {
+                MessageBox.Show("当前已有任务正在运行，请稍后再试。", "操作不可用", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            _isBusy = true;
+            using var operationCts = BeginOperation("立即运行");
+            try
+            {
+                var token = operationCts.Token;
+                IsAnalysisProgressVisible = true;
+                ResetAnalysisProgressDisplay();
+                AnalysisStatusText = $"正在分析：{definition.TaskName}";
+
+                var analysis = await AnalyzeTaskAsync(definition, token);
+                if (analysis.Count == 0)
+                {
+                    MessageBox.Show("源文件被过滤规则全部排除，无需同步。", "无同步内容", MessageBoxButton.OK, MessageBoxImage.Information);
+                    AnalysisStatusText = "分析完成，无待同步内容。";
+                    return;
+                }
+
+                _analysisService.SaveAnalysis(definition, analysis);
+                MarkTaskAnalysisCompleted(taskVm, true);
+                CommandManager.InvalidateRequerySuggested();
+
+                AnalysisStatusText = $"正在执行：{definition.TaskName}";
+                IsAnalysisProgressIndeterminate = false;
+                AnalysisProgressMaximum = 1;
+                AnalysisProgressValue = 0;
+
+                var report = await ExecuteSelectedItemsAsync(definition, analysis, token);
+                var reportPath = SyncReportFileWriter.Write(definition.Id, definition.TaskName, report);
+                var reportFileName = Path.GetFileName(reportPath);
+
+                AnalysisStatusText = $"执行完成：{definition.TaskName}";
+                MessageBox.Show(
+                    BuildReportSummaryMessage($"任务“{definition.TaskName}”已立即执行完成。", new[] { reportFileName }),
+                    "执行完成",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (OperationCanceledException)
+            {
+                AnalysisStatusText = "执行已停止。";
+                MessageBox.Show("执行已停止。若停止时正在传输文件，未完成的目标文件已删除。", "已停止", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                AnalysisStatusText = "执行失败";
+                MessageBox.Show($"立即运行失败：{ex.Message}", "执行失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isBusy = false;
+                EndOperation();
+                IsAnalysisProgressVisible = false;
                 CommandManager.InvalidateRequerySuggested();
             }
         }

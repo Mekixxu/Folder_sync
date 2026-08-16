@@ -139,6 +139,10 @@
                                     <materialDesign:PackIcon Kind="DotsVertical" Width="22" Height="22"/>
                                 </materialDesign:PopupBox.ToggleContent>
                                 <StackPanel MinWidth="120">
+                                    <Button Content="{DynamicResource Tasks.RunNow}"
+                                            Command="{Binding DataContext.RunNowCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                            CommandParameter="{Binding}"
+                                            HorizontalContentAlignment="Left"/>
                                     <Button Content="{DynamicResource Common.Edit}"
                                             Command="{Binding DataContext.EditTaskCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
                                             CommandParameter="{Binding}"
