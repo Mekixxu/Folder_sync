@@ -45,7 +45,7 @@
                                 <StackPanel>
                                     <TextBlock Text="源目录 (A)" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
                                     <ComboBox materialDesign:HintAssist.Hint="协议" ItemsSource="{Binding Protocols}" SelectedItem="{Binding SourceProtocol}" Margin="0,0,0,15"/>
-                                    <TextBox materialDesign:HintAssist.Hint="路径 (C:\Data 或 \\192.168.1.10\Share)" Text="{Binding SourcePath}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0,0,0,10"/>
+                                    <TextBox materialDesign:HintAssist.Hint="路径 (C:\Data 或 \\192.168.1.10\Share)" Text="{Binding SourcePath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0,0,0,10"/>
                                     <StackPanel Visibility="{Binding IsSourceFtp, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,10">
                                         <ComboBox materialDesign:HintAssist.Hint="FTP 认证方式"
                                                   ItemsSource="{Binding FtpAuthenticationModes}"
@@ -84,7 +84,7 @@
                                 <StackPanel>
                                     <TextBlock Text="目标目录 (B)" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
                                     <ComboBox materialDesign:HintAssist.Hint="协议" ItemsSource="{Binding Protocols}" SelectedItem="{Binding DestProtocol}" Margin="0,0,0,15"/>
-                                    <TextBox materialDesign:HintAssist.Hint="路径 (D:\Backup 或 /ftp/data/)" Text="{Binding DestPath}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0,0,0,10"/>
+                                    <TextBox materialDesign:HintAssist.Hint="路径 (D:\Backup 或 /ftp/data/)" Text="{Binding DestPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0,0,0,10"/>
                                     <StackPanel Visibility="{Binding IsDestFtp, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,10">
                                         <ComboBox materialDesign:HintAssist.Hint="FTP 认证方式"
                                                   ItemsSource="{Binding FtpAuthenticationModes}"

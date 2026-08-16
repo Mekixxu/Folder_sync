@@ -159,6 +159,16 @@ namespace FolderSync.UI.ViewModels
         {
             if (parameter is TaskListItemViewModel task)
             {
+                var confirm = MessageBox.Show(
+                    $"确定要删除任务“{task.TaskName}”吗？\n\n此操作会移除定时调度并清理一次性同步状态，且无法撤销。",
+                    "删除任务确认",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
                 try
                 {
                     await SchedulerManager.Instance.RemoveJobAsync(task.Id);

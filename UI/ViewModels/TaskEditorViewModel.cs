@@ -73,14 +73,26 @@ namespace FolderSync.UI.ViewModels
         public string SourcePath
         {
             get => _sourcePath;
-            set => SetProperty(ref _sourcePath, value);
+            set
+            {
+                if (SetProperty(ref _sourcePath, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
         private string _destPath = string.Empty;
         public string DestPath
         {
             get => _destPath;
-            set => SetProperty(ref _destPath, value);
+            set
+            {
+                if (SetProperty(ref _destPath, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
         public ObservableCollection<string> FtpAuthenticationModes { get; } = new(new[] { "匿名登录", "账号密码登录" });
