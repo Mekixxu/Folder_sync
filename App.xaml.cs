@@ -1,11 +1,13 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
 using FolderSync.Core.Config;
 using FolderSync.Core.Scheduler;
+using FolderSync.Core.Sync;
 using FolderSync.UI.Localization;
 using FolderSync.UI.Services;
 using Serilog;
@@ -42,7 +44,10 @@ namespace FolderSync
                 // 3. 启动 Quartz 定时任务调度引擎
                 await SchedulerManager.Instance.StartAsync();
 
-                // 4. 初始化托盘常驻与主窗口
+                // 4. 从 tasks.json 恢复全部定时任务注册
+                await RestoreScheduledTasksAsync();
+
+                // 5. 初始化托盘常驻与主窗口
                 InitializeTrayIcon();
                 MainWindow = new MainWindow();
                 if (startInTray)
@@ -179,6 +184,36 @@ namespace FolderSync
         {
             _trayIconService = new TrayIconService(ShowMainWindowFromTray, ExitApplicationFromTray);
             _trayIconService.Hide();
+        }
+
+        private static async Task RestoreScheduledTasksAsync()
+        {
+            List<SyncTaskDefinition> tasks;
+            try
+            {
+                tasks = new TaskRepository().LoadAll();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to load task definitions during scheduler restore. Scheduled jobs were not restored.");
+                return;
+            }
+
+            foreach (var task in tasks.Where(t => !t.IsManualTrigger))
+            {
+                try
+                {
+                    var cron = SyncTaskFactory.ResolveCronExpression(task);
+                    var executor = SyncTaskFactory.CreateExecutor(task);
+                    await SchedulerManager.Instance.AddOrUpdateJobAsync(task.Id, task.TaskName, cron, executor);
+                    Log.Information("Restored scheduled job {TaskName} ({TaskId}) with cron {Cron}", task.TaskName, task.Id, cron);
+                }
+                catch (Exception ex)
+                {
+                    // 单个任务损坏不能阻断整个应用启动
+                    Log.Error(ex, "Failed to restore scheduled job {TaskName} ({TaskId})", task.TaskName, task.Id);
+                }
+            }
         }
 
         private static bool ShouldStartInTray(string[] args)

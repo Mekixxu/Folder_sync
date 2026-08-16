@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**;publish\**</DefaultItemExcludes>
     
     <!-- 应用版本信息 -->
