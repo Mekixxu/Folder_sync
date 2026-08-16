@@ -51,16 +51,19 @@ namespace FolderSync
             {
                 var startInTray = ShouldStartInTray(e.Args);
 
-                // 2. 加载显示与语言设置
-                ApplyDisplaySettings();
+// 2. 加载显示与语言设置
+                var settings = ApplyDisplaySettings();
 
-                // 3. 启动 Quartz 定时任务调度引擎
+                // 3. 按保留天数清理过期运行日志与任务报告
+                CleanupOldLogs(settings);
+
+                // 4. 启动 Quartz 定时任务调度引擎
                 await SchedulerManager.Instance.StartAsync();
 
-                // 4. 从 tasks.json 恢复全部定时任务注册
+                // 5. 从 tasks.json 恢复全部定时任务注册
                 await RestoreScheduledTasksAsync();
 
-                // 5. 初始化托盘常驻与主窗口
+                // 6. 初始化托盘常驻与主窗口
                 InitializeTrayIcon();
                 MainWindow = new MainWindow();
                 if (startInTray)
@@ -177,7 +180,7 @@ namespace FolderSync
             e.SetObserved();
         }
 
-        private void ApplyDisplaySettings()
+        private AppSettings ApplyDisplaySettings()
         {
             var settings = new SettingsRepository().Load();
             LocalizationService.ApplyLanguage(settings.Language);
@@ -194,6 +197,46 @@ namespace FolderSync
             catch
             {
                 Resources["AppFontFamily"] = new FontFamily("Microsoft YaHei UI");
+            }
+
+            return settings;
+        }
+
+        private static void CleanupOldLogs(AppSettings settings)
+        {
+            try
+            {
+                var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log");
+                if (!Directory.Exists(logDirectory))
+                {
+                    return;
+                }
+
+                var retentionDays = Math.Max(settings.LogRetentionDays, 1);
+                var cutoff = DateTime.UtcNow.AddDays(-retentionDays);
+
+                foreach (var file in Directory.EnumerateFiles(logDirectory)
+                             .Where(f => f.EndsWith(".log", StringComparison.OrdinalIgnoreCase)
+                                         || f.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)))
+                {
+                    try
+                    {
+                        var info = new FileInfo(file);
+                        if (info.LastWriteTimeUtc < cutoff)
+                        {
+                            info.Delete();
+                            Log.Information("Cleaned up expired log file {FileName}", info.Name);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Failed to delete expired log file {FilePath}", file);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to clean up old logs");
             }
         }
 
