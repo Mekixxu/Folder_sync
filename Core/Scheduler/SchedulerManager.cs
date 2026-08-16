@@ -41,7 +41,7 @@ namespace FolderSync.Core.Scheduler
         {
             if (_scheduler != null && _scheduler.IsStarted)
             {
-                await _scheduler.Shutdown(waitForJobsToComplete: true, cancellationToken);
+                await _scheduler.Shutdown(waitForJobsToComplete: false, cancellationToken);
                 Log.Information("Quartz Scheduler stopped successfully.");
             }
         }

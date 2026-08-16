@@ -147,7 +147,6 @@ namespace FolderSync
         private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
             Log.Fatal(e.Exception, "Unhandled dispatcher exception.");
-            Log.CloseAndFlush();
 
             MessageBox.Show(
                 $"程序捕获到未处理异常：{e.Exception.Message}\n\n详细信息已写入 log 文件夹，请将最新 .log 文件提供出来。",
@@ -175,7 +174,6 @@ namespace FolderSync
         private static void OnTaskSchedulerUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
         {
             Log.Fatal(e.Exception, "Unobserved task exception.");
-            Log.CloseAndFlush();
             e.SetObserved();
         }
 
