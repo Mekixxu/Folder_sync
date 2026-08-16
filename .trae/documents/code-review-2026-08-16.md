@@ -172,3 +172,34 @@ flowchart TD
 - **Issue 6**：`.gitignore` 增加 `data/` 条目（含 DPAPI 密文与 SQLite 基线不再被 git 跟踪）。
 - **Issue D**：`CLAUDE.md` 目录树补充 `TaskAnalysisService.cs`、`TaskAnalysisModels.cs`、`TaskAnalysisViewModel.cs`、`TaskAnalysisWindow`、`StructureAwarePathHelper.cs`；模块映射新增"同步执行器 / 分析服务"；第 27 条重复编号修正为 28。
 - 新增本审查报告文档。
+
+---
+
+## 第二轮复查增补（2026-08-16）
+
+> 本轮复查以提交 `2f0e779` 为基线。原始报告中的 Issue 1、2、3、4、5、8、9、10、11、12、13、14、15、16、A、B、C 仍然有效；Issue 6、7、D 已在当前基线修复。
+
+### 新增/细化的关键问题
+
+| ID | 问题 | 位置 | 严重度 |
+|----|------|------|--------|
+| N1 | 源/目标路径相同或互为父子目录时，镜像/双向/递归同步可能造成数据丢失，无保护 | `TaskEditorViewModel.SaveTask`、`SyncExecutor.ExecuteAsync`、`TaskAnalysisService` | High |
+| N2 | 复制失败仅在 `OperationCanceledException` 时清理半截文件，普通 IO/FTP 异常会残留损坏目标 | `OneWayDeliveryStateStore.CopyFileAndComputeHashAsync/CopyFileAsync` | High |
+| N3 | `OnDispatcherUnhandledException` 无差别 `Handled=true` 且关闭全局日志；`OnTaskSchedulerUnobservedTaskException` 也关闭全局日志，导致后续运行日志丢失 | `App.xaml.cs` | Med |
+| N4 | `LocalFileSystem.ListFilesAsync` 完全忽略 CancellationToken，大目录停止按钮无效 | `LocalFileSystem.cs` | Med |
+| N5 | `TaskRepository`/`SettingsRepository` 非原子写、无并发保护、损坏 JSON 直接崩溃 | `Core/Config/*Repository.cs` | Med |
+| N6 | 一次性同步每成功一个文件就新建一个 SQLite 连接，大量文件时性能极差 | `OneWayDeliveryStateStore.UpsertAsync` | Med |
+| N7 | 分析窗口每勾选一行都全量重算文件数与总大小，大列表 UI 卡顿 | `TaskAnalysisViewModel.RaiseSummaryPropertiesChanged` | Med |
+| N8 | 硬编码文案不限于 MessageBox：`TaskEditorView.xaml`、`MainWindow.xaml` 存在大量中文；英文模式不完整 | XAML/ViewModel | Low |
+| N9 | `SourcePath`/`DestPath` 自动属性不通知，`CanSaveTask` 无法及时刷新保存按钮状态 | `TaskEditorViewModel.cs` | Med |
+| N10 | 删除任务无确认；分析窗口关闭无未保存提示；导航切换不取消后台任务 | `TasksViewModel`/`TaskAnalysisWindow`/`MainViewModel` | Med |
+| N11 | 全链路用 `OrdinalIgnoreCase` 做路径映射，大小写敏感的 FTP 服务器可能误判同名文件 | `Diff`/`Sync`/`TaskAnalysisService` | Low |
+| N12 | `CLAUDE.md` 文件头存在重复 BOM 字符；本轮已清理 | `CLAUDE.md` | Low |
+
+### 执行计划
+
+所有问题已转化为可供局部执行 LLM 直接照做的逐文件任务：
+- **执行计划**：`.trae/documents/improvement-execution-plan-2026-08-16.md`
+- 执行顺序：P0（T01-T07）→ P1（T08-T14）→ P2（T15-T19）
+- 每步要求：单任务提交 + `dotnet build -c Release` + 禁止无关重构
+- 最终交付：版本号 `0.0.55` + portable exe + `CLAUDE.md` 目录树同步
