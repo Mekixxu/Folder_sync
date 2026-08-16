@@ -24,6 +24,14 @@ namespace FolderSync.Core.Sync
             CancellationToken cancellationToken = default)
         {
             PathSafetyValidator.EnsureSourceDestDoNotOverlap(task);
+
+            // 双向模式：走 SQLite 基线可靠判定，确保分析结果与定时执行链路一致。
+            if (task.SyncMode == SyncMode.TwoWay)
+            {
+                using var executor = SyncTaskFactory.CreateExecutor(task);
+                return await executor.AnalyzeTwoWayAsync(cancellationToken);
+            }
+
             using var sourceFs = SyncTaskFactory.CreateSourceFileSystem(task);
             using var destFs = SyncTaskFactory.CreateDestFileSystem(task);
             var diff = SyncTaskFactory.CreateDiffStrategy(task.DiffStrategy);
@@ -303,6 +311,13 @@ namespace FolderSync.Core.Sync
                             "Manual selected execution failed",
                             ex);
                     }
+                }
+
+                // 双向模式手动执行成功后刷新 SQLite 基线，避免后续定时运行基于陈旧基线。
+                if (task.SyncMode == SyncMode.TwoWay && report.FailedFiles == 0)
+                {
+                    using var executor = SyncTaskFactory.CreateExecutor(task);
+                    await executor.RefreshTwoWayBaselineAsync(cancellationToken);
                 }
             }
             finally

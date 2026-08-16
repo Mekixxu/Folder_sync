@@ -154,6 +154,97 @@ namespace FolderSync.Core.Sync
             await ExecuteTwoWayOperationsAsync(operations, report, cancellationToken);
 
             // 同步完成后写回新基线
+            await RefreshTwoWayBaselineAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// 双向模式：基于 SQLite 基线生成与手动执行链路一致的分析项。
+        /// 用于任务页手动“分析”时展示即将执行的文件列表。
+        /// </summary>
+        public async Task<List<TaskAnalysisItem>> AnalyzeTwoWayAsync(CancellationToken cancellationToken = default)
+        {
+            await _sourceFs.ConnectAsync(cancellationToken);
+            await _destFs.ConnectAsync(cancellationToken);
+            await _twoWayStateStore.InitializeAsync(cancellationToken);
+
+            var rawSourceItems = (await _sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var rawDestItems = (await _destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
+            var sourceMap = StructureAwarePathHelper.ExpandWithAncestorDirectories(rawSourceItems, _filterEngine.Filter(rawSourceItems))
+                .ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
+            var destMap = StructureAwarePathHelper.ExpandWithAncestorDirectories(rawDestItems, _filterEngine.Filter(rawDestItems))
+                .ToDictionary(x => x.Path, StringComparer.OrdinalIgnoreCase);
+
+            var sourceSnapshots = await BuildSnapshotsAsync(_sourceFs, sourceMap, cancellationToken);
+            var destSnapshots = await BuildSnapshotsAsync(_destFs, destMap, cancellationToken);
+            var baseline = await _twoWayStateStore.LoadAsync(_taskId, cancellationToken);
+
+            var operations = BuildTwoWayOperations(sourceSnapshots, destSnapshots, baseline);
+
+            var result = new List<TaskAnalysisItem>();
+            foreach (var op in operations)
+            {
+                sourceMap.TryGetValue(op.Path, out var s);
+                destMap.TryGetValue(op.Path, out var d);
+                result.Add(new TaskAnalysisItem
+                {
+                    RelativePath = op.Path,
+                    IsDirectory = op.IsDirectory,
+                    SourceSize = s?.Size,
+                    DestSize = d?.Size,
+                    SourceLastWrite = s?.LastWriteTime,
+                    DestLastWrite = d?.LastWriteTime,
+                    ActionType = MapToSyncActionType(op.Kind),
+                    Direction = ResolveTwoWayAnalysisDirection(op.Kind),
+                    Reason = BuildTwoWayReason(op.Kind),
+                    ShouldSync = true
+                });
+            }
+
+            var operationPathSet = new HashSet<string>(operations.Select(o => o.Path), StringComparer.OrdinalIgnoreCase);
+            var allPaths = new HashSet<string>(sourceMap.Keys, StringComparer.OrdinalIgnoreCase);
+            allPaths.UnionWith(destMap.Keys);
+            foreach (var path in allPaths)
+            {
+                if (operationPathSet.Contains(path))
+                {
+                    continue;
+                }
+
+                sourceMap.TryGetValue(path, out var s);
+                destMap.TryGetValue(path, out var d);
+                var same = SnapshotEquals(
+                    sourceSnapshots.TryGetValue(path, out var sourceSnapshot) ? sourceSnapshot : null,
+                    destSnapshots.TryGetValue(path, out var destSnapshot) ? destSnapshot : null);
+                result.Add(new TaskAnalysisItem
+                {
+                    RelativePath = path,
+                    IsDirectory = s?.IsDirectory ?? d?.IsDirectory ?? false,
+                    SourceSize = s?.Size,
+                    DestSize = d?.Size,
+                    SourceLastWrite = s?.LastWriteTime,
+                    DestLastWrite = d?.LastWriteTime,
+                    Direction = AnalysisDirection.None,
+                    Reason = same ? "已一致，无需同步" : "冲突或忽略，未生成操作",
+                    ShouldSync = false
+                });
+            }
+
+            return result
+                .OrderByDescending(i => i.ShouldSync)
+                .ThenBy(i => i.RelativePath, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        /// <summary>
+        /// 手动执行双向同步后重建并写回 SQLite 基线，保证后续定时运行基于最新状态。
+        /// </summary>
+        public async Task RefreshTwoWayBaselineAsync(CancellationToken cancellationToken = default)
+        {
+            await _sourceFs.ConnectAsync(cancellationToken);
+            await _destFs.ConnectAsync(cancellationToken);
+            await _twoWayStateStore.InitializeAsync(cancellationToken);
+
+            // 重新列举+哈希，写回新基线
             var latestRawSourceItems = (await _sourceFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
             var latestRawDestItems = (await _destFs.ListFilesAsync(cancellationToken: cancellationToken)).ToList();
             var latestSourceItems = StructureAwarePathHelper.ExpandWithAncestorDirectories(latestRawSourceItems, _filterEngine.Filter(latestRawSourceItems));
@@ -163,6 +254,30 @@ namespace FolderSync.Core.Sync
             var latestSourceSnapshots = await BuildSnapshotsAsync(_sourceFs, latestSourceMap, cancellationToken);
             var latestDestSnapshots = await BuildSnapshotsAsync(_destFs, latestDestMap, cancellationToken);
             await _twoWayStateStore.SaveAsync(_taskId, latestSourceSnapshots, latestDestSnapshots, cancellationToken);
+        }
+
+        private static AnalysisDirection ResolveTwoWayAnalysisDirection(TwoWayOpKind kind)
+        {
+            return kind switch
+            {
+                TwoWayOpKind.CopyAToB or TwoWayOpKind.CreateDirInB or TwoWayOpKind.DeleteFileInB or TwoWayOpKind.DeleteDirInB => AnalysisDirection.AToB,
+                TwoWayOpKind.CopyBToA or TwoWayOpKind.CreateDirInA or TwoWayOpKind.DeleteFileInA or TwoWayOpKind.DeleteDirInA => AnalysisDirection.BToA,
+                _ => AnalysisDirection.None
+            };
+        }
+
+        private static string BuildTwoWayReason(TwoWayOpKind kind)
+        {
+            return kind switch
+            {
+                TwoWayOpKind.CreateDirInB => "A 端新增目录，需在 B 端创建",
+                TwoWayOpKind.CopyAToB => "A 端变更，需同步到 B 端",
+                TwoWayOpKind.CreateDirInA => "B 端新增目录，需在 A 端创建",
+                TwoWayOpKind.CopyBToA => "B 端变更，需同步到 A 端",
+                TwoWayOpKind.DeleteFileInB or TwoWayOpKind.DeleteDirInB => "A 端已删除，B 端多余项需删除",
+                TwoWayOpKind.DeleteFileInA or TwoWayOpKind.DeleteDirInA => "B 端已删除，A 端多余项需删除",
+                _ => "规则判定需同步"
+            };
         }
 
         private static bool SnapshotEquals(StateSnapshot? a, StateSnapshot? b)
