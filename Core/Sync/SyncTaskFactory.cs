@@ -61,7 +61,7 @@ namespace FolderSync.Core.Sync
             {
                 if (!int.TryParse(task.IntervalValue, out var n) || n <= 0)
                 {
-                    n = 10;
+                    throw new InvalidOperationException($"周期触发的间隔值无效：{task.IntervalValue}");
                 }
 
                 return task.IntervalUnit switch
@@ -70,7 +70,7 @@ namespace FolderSync.Core.Sync
                     "分钟" => $"0 0/{n} * * * ?",
                     "小时" => $"0 0 0/{n} * * ?",
                     "天" => $"0 0 0 1/{n} * ?",
-                    _ => $"0 0/{n} * * * ?"
+                    _ => throw new InvalidOperationException($"不支持的调度周期单位：{task.IntervalUnit}")
                 };
             }
 

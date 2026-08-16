@@ -9,6 +9,7 @@ namespace FolderSync.Core.Filters
     /// </summary>
     public class RegexFilter : IFilter
     {
+        private static readonly TimeSpan MatchTimeout = TimeSpan.FromSeconds(2);
         private readonly Regex? _regexPattern;
         private readonly bool _isExcludePattern;
 
@@ -21,7 +22,14 @@ namespace FolderSync.Core.Filters
         {
             if (!string.IsNullOrWhiteSpace(pattern))
             {
-                _regexPattern = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                try
+                {
+                    _regexPattern = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled, MatchTimeout);
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new InvalidOperationException($"正则表达式无效：{pattern}", ex);
+                }
             }
             _isExcludePattern = isExcludePattern;
         }
@@ -38,8 +46,17 @@ namespace FolderSync.Core.Filters
                 return true;
             }
 
-            // 对完整相对路径进行匹配，而不仅仅是文件名
-            bool isMatch = _regexPattern.IsMatch(item.Path ?? item.Name ?? string.Empty);
+            bool isMatch;
+            try
+            {
+                // 对完整相对路径进行匹配，而不仅仅是文件名
+                isMatch = _regexPattern.IsMatch(item.Path ?? item.Name ?? string.Empty);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                // 匹配超时视为命中：黑名单发拦截，白名单则不放行，避免灾难性回溯卡死同步。
+                isMatch = !_isExcludePattern;
+            }
 
             return _isExcludePattern ? !isMatch : isMatch;
         }

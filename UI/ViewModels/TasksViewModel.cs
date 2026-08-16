@@ -201,10 +201,23 @@ namespace FolderSync.UI.ViewModels
                 SourcePath = def.SourcePath,
                 DestPath = def.DestPath,
                 SyncMode = FormatSyncMode(def.SyncMode),
-                ScheduleInfo = def.IsManualTrigger ? "计划: 手动触发" : $"计划: {SyncTaskFactory.ResolveCronExpression(def)}",
+                ScheduleInfo = def.IsManualTrigger ? "计划: 手动触发" : $"计划: {ResolveCronExpressionSafe(def)}",
                 IsAnalysisCompleted = hasSavedAnalysis,
                 IsOneWaySendOnce = def.SyncMode == SyncMode.OneWaySendOnce
             };
+        }
+
+        private static string ResolveCronExpressionSafe(SyncTaskDefinition def)
+        {
+            try
+            {
+                return SyncTaskFactory.ResolveCronExpression(def);
+            }
+            catch (Exception)
+            {
+                // 历史遗留的非法调度配置不应阻断任务列表显示，仅展示原始配置文本。
+                return string.IsNullOrWhiteSpace(def.CronExpression) ? "配置无效" : def.CronExpression.Trim();
+            }
         }
 
         private static string FormatSyncMode(SyncMode mode)

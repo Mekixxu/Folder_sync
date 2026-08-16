@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
+using Quartz;
 using FolderSync.Core.Config;
 using FolderSync.Core.Filters;
 using FolderSync.Core.Scheduler;
@@ -275,6 +276,11 @@ namespace FolderSync.UI.ViewModels
         private async Task SaveTaskAsync(object? parameter)
         {
             if (!ValidateFtpConfiguration())
+            {
+                return;
+            }
+
+            if (!ValidateTriggerConfiguration())
             {
                 return;
             }
@@ -563,6 +569,30 @@ namespace FolderSync.UI.ViewModels
             var config = task.FilterConfiguration ?? new DualListFilterConfiguration();
             ApplyRuleSetToUi(config.Whitelist, true);
             ApplyRuleSetToUi(config.Blacklist, false);
+        }
+
+        private bool ValidateTriggerConfiguration()
+        {
+            var triggerCount = (IsManualTrigger ? 1 : 0) + (IsPeriodicTrigger ? 1 : 0) + (IsCronTrigger ? 1 : 0);
+            if (triggerCount != 1)
+            {
+                MessageBox.Show("请选择一种且仅一种触发方式：手动、周期或 Cron。", "触发配置无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            if (IsPeriodicTrigger && (!int.TryParse(IntervalValue, out var interval) || interval <= 0))
+            {
+                MessageBox.Show("周期触发的间隔数值必须为正整数。", "触发配置无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            if (IsCronTrigger && !Quartz.CronExpression.IsValidExpression(CronExpression.Trim()))
+            {
+                MessageBox.Show("Cron 表达式无效，请检查 6 段格式（秒 分 时 日 月 周）。", "触发配置无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            return true;
         }
 
         private bool ValidateFtpConfiguration()
