@@ -42,6 +42,7 @@ namespace FolderSync.Core.Sync
 
         public static SyncExecutor CreateExecutor(SyncTaskDefinition task)
         {
+            PathSafetyValidator.EnsureSourceDestDoNotOverlap(task);
             var (sourceFs, destFs) = CreateFileSystems(task);
             var diff = CreateDiffStrategy(task.DiffStrategy);
             var filterEngine = CreateFilterEngine(task.FilterConfiguration ?? new DualListFilterConfiguration());

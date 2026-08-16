@@ -23,6 +23,7 @@ namespace FolderSync.Core.Sync
             SyncTaskDefinition task,
             CancellationToken cancellationToken = default)
         {
+            PathSafetyValidator.EnsureSourceDestDoNotOverlap(task);
             using var sourceFs = SyncTaskFactory.CreateSourceFileSystem(task);
             using var destFs = SyncTaskFactory.CreateDestFileSystem(task);
             var diff = SyncTaskFactory.CreateDiffStrategy(task.DiffStrategy);
@@ -179,6 +180,7 @@ namespace FolderSync.Core.Sync
             IEnumerable<TaskAnalysisItem> selectedItems,
             CancellationToken cancellationToken = default)
         {
+            PathSafetyValidator.EnsureSourceDestDoNotOverlap(task);
             using var sourceFs = SyncTaskFactory.CreateSourceFileSystem(task);
             using var destFs = SyncTaskFactory.CreateDestFileSystem(task);
             var report = new SyncReport

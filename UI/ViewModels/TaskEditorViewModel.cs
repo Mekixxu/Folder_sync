@@ -296,6 +296,7 @@ namespace FolderSync.UI.ViewModels
             try
             {
                 var task = BuildTaskDefinition(configuration);
+                PathSafetyValidator.EnsureSourceDestDoNotOverlap(task);
                 _taskRepository.Upsert(task);
 
                 if (task.IsManualTrigger)
