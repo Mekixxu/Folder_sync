@@ -52,6 +52,7 @@ namespace FolderSync.Core.VFS
             // 添加所有文件夹
             foreach (var dir in directoryInfo.EnumerateDirectories("*", searchOption))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 result.Add(new FileItem
                 {
                     Name = dir.Name,
@@ -65,6 +66,7 @@ namespace FolderSync.Core.VFS
             // 添加所有文件
             foreach (var file in directoryInfo.EnumerateFiles("*", searchOption))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 result.Add(new FileItem
                 {
                     Name = file.Name,
