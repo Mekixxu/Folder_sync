@@ -1,12 +1,14 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using Serilog;
 
 namespace FolderSync.Core.Config
 {
     public class SettingsRepository
     {
         private readonly string _filePath;
+        private readonly object _gate = new();
         private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
         public SettingsRepository(string? filePath = null)
@@ -18,19 +20,54 @@ namespace FolderSync.Core.Config
 
         public AppSettings Load()
         {
-            if (!File.Exists(_filePath))
+            lock (_gate)
             {
-                return new AppSettings();
-            }
+                if (!File.Exists(_filePath))
+                {
+                    return new AppSettings();
+                }
 
-            var json = File.ReadAllText(_filePath);
-            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+                try
+                {
+                    var json = File.ReadAllText(_filePath);
+                    return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+                }
+                catch (Exception ex) when (ex is JsonException or IOException)
+                {
+                    BackupCorruptFile();
+                    Log.Error(ex, "Failed to load settings from {FilePath}. Corrupt file backed up; using defaults.", _filePath);
+                    return new AppSettings();
+                }
+            }
         }
 
         public void Save(AppSettings settings)
         {
-            var json = JsonSerializer.Serialize(settings, JsonOptions);
-            File.WriteAllText(_filePath, json);
+            lock (_gate)
+            {
+                var json = JsonSerializer.Serialize(settings, JsonOptions);
+                AtomicWrite(json);
+            }
+        }
+
+        private void AtomicWrite(string json)
+        {
+            var tempPath = _filePath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, _filePath, overwrite: true);
+        }
+
+        private void BackupCorruptFile()
+        {
+            try
+            {
+                var backupPath = _filePath + $".corrupt-{DateTime.Now:yyyyMMddHHmmss}";
+                File.Copy(_filePath, backupPath, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to back up corrupt file {FilePath}", _filePath);
+            }
         }
     }
 }
