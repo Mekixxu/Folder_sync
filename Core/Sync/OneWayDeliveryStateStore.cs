@@ -240,6 +240,11 @@ namespace FolderSync.Core.Sync
                 await writeStream.FlushAsync(cancellationToken);
                 return Convert.ToHexString(hasher.GetCurrentHash());
             }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                await TryDeleteIncompleteTargetAsync(toFs, path);
+                throw;
+            }
             catch (OperationCanceledException)
             {
                 await TryDeleteIncompleteTargetAsync(toFs, path);
@@ -259,6 +264,11 @@ namespace FolderSync.Core.Sync
                 using var writeStream = await toFs.OpenWriteAsync(path, cancellationToken);
                 await readStream.CopyToAsync(writeStream, 81920, cancellationToken);
                 await writeStream.FlushAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                await TryDeleteIncompleteTargetAsync(toFs, path);
+                throw;
             }
             catch (OperationCanceledException)
             {
