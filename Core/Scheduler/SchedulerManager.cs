@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FolderSync.Core.Sync;
@@ -16,6 +17,8 @@ namespace FolderSync.Core.Scheduler
         private static readonly Lazy<SchedulerManager> _instance = new(() => new SchedulerManager());
         public static SchedulerManager Instance => _instance.Value;
 
+        private readonly SemaphoreSlim _gate = new(1, 1);
+        private readonly Dictionary<string, SyncExecutor> _executors = new(StringComparer.OrdinalIgnoreCase);
         private IScheduler? _scheduler;
 
         private SchedulerManager() { }
@@ -25,12 +28,20 @@ namespace FolderSync.Core.Scheduler
         /// </summary>
         public async Task StartAsync(CancellationToken cancellationToken = default)
         {
-            if (_scheduler == null || !_scheduler.IsStarted)
+            await _gate.WaitAsync(cancellationToken);
+            try
             {
-                var factory = new StdSchedulerFactory();
-                _scheduler = await factory.GetScheduler(cancellationToken);
-                await _scheduler.Start(cancellationToken);
-                Log.Information("Quartz Scheduler started successfully.");
+                if (_scheduler == null || !_scheduler.IsStarted)
+                {
+                    var factory = new StdSchedulerFactory();
+                    _scheduler = await factory.GetScheduler(cancellationToken);
+                    await _scheduler.Start(cancellationToken);
+                    Log.Information("Quartz Scheduler started successfully.");
+                }
+            }
+            finally
+            {
+                _gate.Release();
             }
         }
 
@@ -39,10 +50,24 @@ namespace FolderSync.Core.Scheduler
         /// </summary>
         public async Task StopAsync(CancellationToken cancellationToken = default)
         {
-            if (_scheduler != null && _scheduler.IsStarted)
+            await _gate.WaitAsync(cancellationToken);
+            try
             {
-                await _scheduler.Shutdown(waitForJobsToComplete: false, cancellationToken);
-                Log.Information("Quartz Scheduler stopped successfully.");
+                if (_scheduler != null && _scheduler.IsStarted)
+                {
+                    await _scheduler.Shutdown(waitForJobsToComplete: false, cancellationToken);
+                    Log.Information("Quartz Scheduler stopped successfully.");
+                }
+
+                foreach (var executor in _executors.Values)
+                {
+                    executor.Dispose();
+                }
+                _executors.Clear();
+            }
+            finally
+            {
+                _gate.Release();
             }
         }
 
@@ -56,34 +81,51 @@ namespace FolderSync.Core.Scheduler
         /// <param name="executor">同步执行器实例</param>
         public async Task AddOrUpdateJobAsync(string taskId, string taskName, string cronExpression, SyncExecutor executor)
         {
-            if (_scheduler == null) throw new InvalidOperationException("Scheduler is not started.");
-
-            var jobKey = new JobKey(taskId, "SyncJobs");
-            var triggerKey = new TriggerKey(taskId, "SyncTriggers");
-
-            // 如果已经存在同名任务，先删除旧任务以进行更新
-            if (await _scheduler.CheckExists(jobKey))
+            await _gate.WaitAsync();
+            try
             {
-                await _scheduler.DeleteJob(jobKey);
+                if (_scheduler == null) throw new InvalidOperationException("Scheduler is not started.");
+
+                // 先释放同 key 的旧执行器，避免 FTP 连接句柄泄漏
+                if (_executors.TryGetValue(taskId, out var previousExecutor))
+                {
+                    previousExecutor.Dispose();
+                    _executors.Remove(taskId);
+                }
+
+                var jobKey = new JobKey(taskId, "SyncJobs");
+                var triggerKey = new TriggerKey(taskId, "SyncTriggers");
+
+                // 如果已经存在同名任务，先删除旧任务以进行更新
+                if (await _scheduler.CheckExists(jobKey))
+                {
+                    await _scheduler.DeleteJob(jobKey);
+                }
+
+                var job = JobBuilder.Create<SyncJob>()
+                    .WithIdentity(jobKey)
+                    .WithDescription($"Sync task: {taskName}")
+                    .UsingJobData(SyncJob.JobDataKey_TaskId, taskId)
+                    .UsingJobData(SyncJob.JobDataKey_TaskName, taskName)
+                    .Build();
+
+                // 因为 SyncExecutor 是一个对象引用，无法通过原生的简单类型 JobDataMap 保存，我们需要将其放入到对象级 JobDataMap 中
+                job.JobDataMap[SyncJob.JobDataKey_SyncExecutor] = executor;
+
+                var trigger = TriggerBuilder.Create()
+                    .WithIdentity(triggerKey)
+                    .WithCronSchedule(cronExpression, x => x.WithMisfireHandlingInstructionDoNothing())
+                    .Build();
+
+                await _scheduler.ScheduleJob(job, trigger);
+
+                _executors[taskId] = executor;
+                Log.Information("Job {TaskName} ({TaskId}) scheduled with cron: {CronExpression}", taskName, taskId, cronExpression);
             }
-
-            var job = JobBuilder.Create<SyncJob>()
-                .WithIdentity(jobKey)
-                .WithDescription($"Sync task: {taskName}")
-                .UsingJobData(SyncJob.JobDataKey_TaskId, taskId)
-                .UsingJobData(SyncJob.JobDataKey_TaskName, taskName)
-                .Build();
-
-            // 因为 SyncExecutor 是一个对象引用，无法通过原生的简单类型 JobDataMap 保存，我们需要将其放入到对象级 JobDataMap 中
-            job.JobDataMap[SyncJob.JobDataKey_SyncExecutor] = executor;
-
-            var trigger = TriggerBuilder.Create()
-                .WithIdentity(triggerKey)
-                .WithCronSchedule(cronExpression, x => x.WithMisfireHandlingInstructionDoNothing())
-                .Build();
-
-            await _scheduler.ScheduleJob(job, trigger);
-            Log.Information("Job {TaskName} ({TaskId}) scheduled with cron: {CronExpression}", taskName, taskId, cronExpression);
+            finally
+            {
+                _gate.Release();
+            }
         }
 
         /// <summary>
@@ -91,12 +133,26 @@ namespace FolderSync.Core.Scheduler
         /// </summary>
         public async Task RemoveJobAsync(string taskId)
         {
-            if (_scheduler == null) return;
-            var jobKey = new JobKey(taskId, "SyncJobs");
-            if (await _scheduler.CheckExists(jobKey))
+            await _gate.WaitAsync();
+            try
             {
-                await _scheduler.DeleteJob(jobKey);
-                Log.Information("Job ({TaskId}) removed successfully.", taskId);
+                if (_scheduler == null) return;
+                var jobKey = new JobKey(taskId, "SyncJobs");
+                if (await _scheduler.CheckExists(jobKey))
+                {
+                    await _scheduler.DeleteJob(jobKey);
+                    Log.Information("Job ({TaskId}) removed successfully.", taskId);
+                }
+
+                if (_executors.TryGetValue(taskId, out var executor))
+                {
+                    executor.Dispose();
+                    _executors.Remove(taskId);
+                }
+            }
+            finally
+            {
+                _gate.Release();
             }
         }
 
@@ -105,10 +161,18 @@ namespace FolderSync.Core.Scheduler
         /// </summary>
         public async Task<DateTimeOffset?> GetNextFireTimeAsync(string taskId)
         {
-            if (_scheduler == null) return null;
-            var triggerKey = new TriggerKey(taskId, "SyncTriggers");
-            var trigger = await _scheduler.GetTrigger(triggerKey);
-            return trigger?.GetNextFireTimeUtc();
+            await _gate.WaitAsync();
+            try
+            {
+                if (_scheduler == null) return null;
+                var triggerKey = new TriggerKey(taskId, "SyncTriggers");
+                var trigger = await _scheduler.GetTrigger(triggerKey);
+                return trigger?.GetNextFireTimeUtc();
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
 
         /// <summary>
@@ -116,12 +180,20 @@ namespace FolderSync.Core.Scheduler
         /// </summary>
         public async Task TriggerJobImmediatelyAsync(string taskId)
         {
-            if (_scheduler == null) return;
-            var jobKey = new JobKey(taskId, "SyncJobs");
-            if (await _scheduler.CheckExists(jobKey))
+            await _gate.WaitAsync();
+            try
             {
-                await _scheduler.TriggerJob(jobKey);
-                Log.Information("Job ({TaskId}) triggered manually.", taskId);
+                if (_scheduler == null) return;
+                var jobKey = new JobKey(taskId, "SyncJobs");
+                if (await _scheduler.CheckExists(jobKey))
+                {
+                    await _scheduler.TriggerJob(jobKey);
+                    Log.Information("Job ({TaskId}) triggered manually.", taskId);
+                }
+            }
+            finally
+            {
+                _gate.Release();
             }
         }
     }

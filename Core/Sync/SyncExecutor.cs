@@ -14,7 +14,7 @@ namespace FolderSync.Core.Sync
     /// - 单向模式：沿用 Diff 策略输出动作
     /// - 双向模式：使用 SQLite 基线进行可靠判定（新增/修改/删除/冲突）
     /// </summary>
-    public class SyncExecutor
+    public class SyncExecutor : IDisposable
     {
         private readonly IFileSystem _sourceFs;
         private readonly IFileSystem _destFs;
@@ -44,6 +44,12 @@ namespace FolderSync.Core.Sync
             _twoWayStateStore = new TwoWayStateStore();
             _oneWayDeliveryStateStore = new OneWayDeliveryStateStore();
             _taskId = taskId ?? $"{_syncMode}::{_sourceFs.RootIdentifier}->{_destFs.RootIdentifier}";
+        }
+
+        public void Dispose()
+        {
+            _sourceFs.Dispose();
+            _destFs.Dispose();
         }
 
         public async Task<SyncReport> ExecuteAsync(CancellationToken cancellationToken = default)
