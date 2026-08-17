@@ -13,6 +13,7 @@ using FolderSync.Core.Config;
 using FolderSync.Core.Reporting;
 using FolderSync.Core.Scheduler;
 using FolderSync.Core.Sync;
+using FolderSync.UI.Services;
 using FolderSync.UI.Views;
 
 namespace FolderSync.UI.ViewModels
@@ -131,7 +132,7 @@ namespace FolderSync.UI.ViewModels
             var def = FindDefinition(taskVm.Id);
             if (def == null)
             {
-                MessageBox.Show("未找到任务定义。", "分析失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.TaskNotFound", "Title.AnalysisFailed");
                 return;
             }
 
@@ -161,12 +162,8 @@ namespace FolderSync.UI.ViewModels
         {
             if (parameter is TaskListItemViewModel task)
             {
-                var confirm = MessageBox.Show(
-                    $"确定要删除任务“{task.TaskName}”吗？\n\n此操作会移除定时调度并清理一次性同步状态，且无法撤销。",
-                    "删除任务确认",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning);
-                if (confirm != MessageBoxResult.Yes)
+                var confirmed = MessageDialogService.Confirm("Msg.ConfirmDeleteTask", "Title.ConfirmDelete", task.TaskName);
+                if (!confirmed)
                 {
                     return;
                 }
@@ -184,7 +181,7 @@ namespace FolderSync.UI.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"删除任务失败：{ex.Message}", "删除失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageDialogService.ShowError("Msg.DeleteTaskFailed", "Title.DeleteFailed", ex.Message);
                 }
             }
         }
@@ -284,12 +281,12 @@ namespace FolderSync.UI.ViewModels
             catch (OperationCanceledException)
             {
                 AnalysisStatusText = "分析已停止。";
-                MessageBox.Show("分析已停止。", "已停止", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.AnalysisStopped", "Title.Stopped");
             }
             catch (Exception ex)
             {
                 AnalysisStatusText = "分析失败";
-                MessageBox.Show($"批量分析失败：{ex.Message}", "分析失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.BatchAnalysisFailed", "Title.AnalysisFailed", ex.Message);
             }
             finally
             {
@@ -342,16 +339,16 @@ namespace FolderSync.UI.ViewModels
                 }
 
                 AnalysisStatusText = $"批量执行完成，共处理 {reportCount} 个任务。";
-                MessageBox.Show(BuildReportSummaryMessage($"批量执行完成，共处理 {reportCount} 个任务。", reportFileNames), "执行完成", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.ExecuteComplete", "Title.ExecuteComplete", reportCount, BuildReportPreview(reportFileNames), BuildReportMoreSuffix(reportFileNames));
             }
             catch (OperationCanceledException)
             {
                 AnalysisStatusText = "执行已停止。";
-                MessageBox.Show("执行已停止。若停止时正在传输文件，未完成的目标文件已删除。", "已停止", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.ExecuteStopped", "Title.Stopped");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"批量执行失败：{ex.Message}", "执行失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.BatchExecuteFailed", "Title.ExecuteFailed", ex.Message);
             }
             finally
             {
@@ -407,17 +404,17 @@ namespace FolderSync.UI.ViewModels
                 }
 
                 AnalysisStatusText = $"同步完成，共处理 {selected.Count} 个任务。";
-                MessageBox.Show(BuildReportSummaryMessage(AnalysisStatusText, reportFileNames), "同步完成", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.SyncComplete", "Title.SyncComplete", selected.Count, BuildReportPreview(reportFileNames), BuildReportMoreSuffix(reportFileNames));
             }
             catch (OperationCanceledException)
             {
                 AnalysisStatusText = "同步已停止。";
-                MessageBox.Show("同步已停止。若停止时正在传输文件，未完成的目标文件已删除。", "已停止", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.SyncStopped", "Title.Stopped");
             }
             catch (Exception ex)
             {
                 AnalysisStatusText = "同步失败";
-                MessageBox.Show($"批量同步失败：{ex.Message}", "同步失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.BatchSyncFailed", "Title.SyncFailed", ex.Message);
             }
             finally
             {
@@ -509,19 +506,24 @@ namespace FolderSync.UI.ViewModels
             taskVm.IsAnalysisCompleted = completed;
         }
 
-        private static string BuildReportSummaryMessage(string prefix, IReadOnlyList<string> reportFileNames)
+        private static string BuildReportPreview(IReadOnlyList<string> reportFileNames)
         {
             if (reportFileNames.Count == 0)
             {
-                return prefix;
+                return string.Empty;
             }
 
-            var preview = string.Join(Environment.NewLine, reportFileNames.Take(5).Select(name => $"- {name}"));
-            var suffix = reportFileNames.Count > 5
-                ? $"{Environment.NewLine}... 其余 {reportFileNames.Count - 5} 个文件也已写入 log 文件夹。"
-                : string.Empty;
+            return string.Join(Environment.NewLine, reportFileNames.Take(5).Select(name => $"- {name}"));
+        }
 
-            return $"{prefix}{Environment.NewLine}{Environment.NewLine}生成的日志/报告文件：{Environment.NewLine}{preview}{suffix}{Environment.NewLine}{Environment.NewLine}请到程序目录下的 log 文件夹中自行打开。";
+        private static string BuildReportMoreSuffix(IReadOnlyList<string> reportFileNames)
+        {
+            if (reportFileNames.Count <= 5)
+            {
+                return string.Empty;
+            }
+
+            return MessageDialogService.GetString("Msg.ReportMoreFiles", reportFileNames.Count - 5);
         }
 
         private void TaskItemOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -542,13 +544,13 @@ namespace FolderSync.UI.ViewModels
             var definition = FindDefinition(taskVm.Id);
             if (definition == null)
             {
-                MessageBox.Show("未找到任务定义。", "执行失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.TaskNotFound", "Title.ExecuteFailed");
                 return;
             }
 
             if (_isBusy)
             {
-                MessageBox.Show("当前已有任务正在运行，请稍后再试。", "操作不可用", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.BusyRunning", "Title.Unavailable");
                 return;
             }
 
@@ -564,7 +566,7 @@ namespace FolderSync.UI.ViewModels
                 var analysis = await AnalyzeTaskAsync(definition, token);
                 if (analysis.Count == 0)
                 {
-                    MessageBox.Show("源文件被过滤规则全部排除，无需同步。", "无同步内容", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageDialogService.ShowInfo("Msg.NothingToSync", "Title.NothingToSync");
                     AnalysisStatusText = "分析完成，无待同步内容。";
                     return;
                 }
@@ -583,21 +585,17 @@ namespace FolderSync.UI.ViewModels
                 var reportFileName = Path.GetFileName(reportPath);
 
                 AnalysisStatusText = $"执行完成：{definition.TaskName}";
-                MessageBox.Show(
-                    BuildReportSummaryMessage($"任务“{definition.TaskName}”已立即执行完成。", new[] { reportFileName }),
-                    "执行完成",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.RunNowComplete", "Title.ExecuteComplete", definition.TaskName, reportFileName);
             }
             catch (OperationCanceledException)
             {
                 AnalysisStatusText = "执行已停止。";
-                MessageBox.Show("执行已停止。若停止时正在传输文件，未完成的目标文件已删除。", "已停止", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.ExecuteStopped", "Title.Stopped");
             }
             catch (Exception ex)
             {
                 AnalysisStatusText = "执行失败";
-                MessageBox.Show($"立即运行失败：{ex.Message}", "执行失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.RunNowFailed", "Title.ExecuteFailed", ex.Message);
             }
             finally
             {
@@ -618,17 +616,13 @@ namespace FolderSync.UI.ViewModels
             var definition = FindDefinition(taskVm.Id);
             if (definition == null || definition.SyncMode != SyncMode.OneWaySendOnce)
             {
-                MessageBox.Show("仅单向一次性同步任务支持重置状态。", "操作不可用", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.ResetUnavailable", "Title.Unavailable");
                 return;
             }
 
-            var result = MessageBox.Show(
-                $"确定要重置任务“{definition.TaskName}”的一次性同步状态吗？\n\n重置后，下次运行会允许历史文件重新同步。",
-                "重置一次性同步状态",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
+            var confirmed = MessageDialogService.Confirm("Msg.ConfirmResetSendOnce", "Title.ConfirmReset", definition.TaskName);
 
-            if (result != MessageBoxResult.Yes)
+            if (!confirmed)
             {
                 return;
             }
@@ -641,11 +635,11 @@ namespace FolderSync.UI.ViewModels
                 definition.AnalysisSavedAtUtc = null;
                 _taskRepository.Upsert(definition);
                 taskVm.IsAnalysisCompleted = false;
-                MessageBox.Show("该任务的一次性同步状态已重置。", "重置成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.ResetDone", "Title.ResetDone");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"重置一次性同步状态失败：{ex.Message}", "重置失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.ResetFailed", "Title.ResetFailed", ex.Message);
             }
         }
 
