@@ -59,6 +59,7 @@ Folder_sync/
 ├─ Core/
 ├─ UI/
 │  └─ Services/
+├─ FolderSync.Core.Tests/
 ├─ .trae/specs/
 ├─ .trae/documents/
 │  ├─ code-review-2026-08-16.md
@@ -200,7 +201,17 @@ UI/
    ├─ TaskAnalysisWindow.xaml(.cs)
    ├─ LogsView.xaml(.cs)
    └─ SettingsView.xaml(.cs)
+
+FolderSync.Core.Tests/
+├─ FolderSync.Core.Tests.csproj
+├─ LocalFileSystemPathSafetyTests.cs
+├─ PathSafetyValidatorTests.cs
+├─ OneWayDeliveryStateStoreTests.cs
+├─ StructureAwarePathHelperTests.cs
+└─ FilterEngineTests.cs
 ```
+
+> 测试项目说明：`FolderSync.Core.Tests` 引用 WPF 主工程，测试 `net8.0-windows` + `testhost` 依赖 `Microsoft.WindowsDesktop.App`，**只能在 Windows 上 `dotnet test` 运行**；Linux 交叉编译环境仅能 `dotnet build` 验证编译。`AssemblyInfo.cs` 通过 `InternalsVisibleTo("FolderSync.Core.Tests")` 暴露 internal 类型（如 `StructureAwarePathHelper`）。
 
 ---
 
@@ -236,6 +247,7 @@ UI/
 28. 待增强：双向冲突策略可扩展（例如保留双版本、副本命名策略、交互式冲突处理）。
 29. 已完成：Dashboard 显示真实统计（活动任务数、今日同步文件数、今日失败任务数，均由后台线程扫描任务仓库与 `log` 报告汇总）；任务列表支持“立即运行”，点击后直接分析并执行该任务一次，不受调度计划与手动触发标记影响。
 30. 已完成：引入 `MessageDialogService`，所有 ViewModel 的 `MessageBox.Show` 统一改走本地化资源键（`Msg.*`/`Title.*`），位占位符支持格式化参数；`Window` 级硬编码中文文案保留，ViewModel 侧已清零。
+31. 已完成：新增 `FolderSync.Core.Tests` xUnit 回归测试项目（覆盖 LocalFileSystem 路径安全、PathSafetyValidator 重叠检测、OneWayDeliveryStateStore 读写/批量/重置、StructureAwarePathHelper 父目录补齐、FilterEngine 白/黑名单组合）；`FolderSync.csproj` 将 `FolderSync.Core.Tests` 目录排除出主工程编译。测试仅能在 Windows 上运行。
 
 ---
 

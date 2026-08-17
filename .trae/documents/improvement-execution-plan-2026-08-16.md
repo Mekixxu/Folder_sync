@@ -465,7 +465,7 @@ public void Dispose()
 
 ## P2：架构演进与体验完善（低优先级，可后续单独执行）
 
-### T15 [P2] 引入 `MessageDialogService` 并本地化硬编码文案
+### T15 [P2] 引入 `MessageDialogService` 并本地化硬编码文案 — 已完成
 
 - **文件/位置**：新增 `UI/Services/MessageDialogService.cs`；逐步替换 33 处 `MessageBox.Show`；`TaskEditorView.xaml`、`MainWindow.xaml` 硬编码中文文案迁移到 `Strings.*.xaml`。
 - **改法**：
@@ -477,7 +477,7 @@ public void Dispose()
 
 ---
 
-### T16 [P2] 性能优化：SQLite 批量写入、分析结果批量加载与汇总防抖
+### T16 [P2] 性能优化：SQLite 批量写入、分析结果批量加载与汇总防抖 — 已完成
 
 - **文件/位置**：`Core/Sync/OneWayDeliveryStateStore.cs`、`Core/Sync/TwoWayStateStore.cs`、`UI/ViewModels/TaskAnalysisViewModel.cs`。
 - **改法**：
@@ -489,7 +489,7 @@ public void Dispose()
 
 ---
 
-### T17 [P2] ViewModel 生命周期与导航状态治理
+### T17 [P2] ViewModel 生命周期与导航状态治理 — 已完成
 
 - **文件/位置**：`UI/ViewModels/MainViewModel.cs`、`UI/ViewModels/TasksViewModel.cs`、`UI/Views/TaskAnalysisWindow.xaml.cs`。
 - **改法**：
@@ -501,7 +501,7 @@ public void Dispose()
 
 ---
 
-### T18 [P2] 补齐 Dashboard 真实统计与“立即执行”入口
+### T18 [P2] 补齐 Dashboard 真实统计与“立即执行”入口 — 已完成
 
 - **文件/位置**：`UI/ViewModels/DashboardViewModel.cs`、`Core/Scheduler/SchedulerManager.cs`、`UI/Views/TasksView.xaml`。
 - **改法**：
@@ -521,7 +521,7 @@ public void Dispose()
   3. `OneWayDeliveryStateStore` 写入/读取/重置。
   4. `StructureAwarePathHelper.ExpandWithAncestorDirectories` 父目录补齐。
   5. `FilterEngine` 白名单/黑名单组合。
-- **验证**：`dotnet test` 通过。
+- **验证**：`dotnet test` 通过（注意：测试项目引用 WPF 主工程，`net8.0-windows` + testhost 依赖 `Microsoft.WindowsDesktop.App`，**只能在 Windows 上运行**；Linux 下仅能 `dotnet build` 验证编译通过）。
 - **提交 message**：`test(core): add core regression tests for path safety and state stores`
 
 ---

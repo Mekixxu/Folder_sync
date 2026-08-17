@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**;publish\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**;publish\**;FolderSync.Core.Tests\**</DefaultItemExcludes>
     
     <!-- 应用版本信息 -->
     <Version>0.0.55</Version>
