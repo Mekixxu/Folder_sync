@@ -21,7 +21,7 @@ namespace FolderSync.UI.ViewModels
     /// <summary>
     /// 任务列表 ViewModel
     /// </summary>
-    public class TasksViewModel : ViewModelBase
+    public class TasksViewModel : ViewModelBase, IDisposable
     {
         private readonly Action<object?> _navigateAction;
         private readonly TaskRepository _taskRepository = new();
@@ -30,6 +30,8 @@ namespace FolderSync.UI.ViewModels
         private readonly ObservableCollection<SyncTaskDefinition> _definitions = new();
         private CancellationTokenSource? _currentOperationCts;
         private bool _isBusy;
+        private bool _isDisposed;
+        private bool _dialogsSuppressed;
         private bool _isAnalysisProgressVisible;
         private double _analysisProgressValue;
         private double _analysisProgressMaximum = 1;
@@ -281,12 +283,18 @@ namespace FolderSync.UI.ViewModels
             catch (OperationCanceledException)
             {
                 AnalysisStatusText = "分析已停止。";
-                MessageDialogService.ShowInfo("Msg.AnalysisStopped", "Title.Stopped");
+                if (!_dialogsSuppressed)
+                {
+                    MessageDialogService.ShowInfo("Msg.AnalysisStopped", "Title.Stopped");
+                }
             }
             catch (Exception ex)
             {
                 AnalysisStatusText = "分析失败";
-                MessageDialogService.ShowError("Msg.BatchAnalysisFailed", "Title.AnalysisFailed", ex.Message);
+                if (!_dialogsSuppressed)
+                {
+                    MessageDialogService.ShowError("Msg.BatchAnalysisFailed", "Title.AnalysisFailed", ex.Message);
+                }
             }
             finally
             {
@@ -339,16 +347,25 @@ namespace FolderSync.UI.ViewModels
                 }
 
                 AnalysisStatusText = $"批量执行完成，共处理 {reportCount} 个任务。";
-                MessageDialogService.ShowInfo("Msg.ExecuteComplete", "Title.ExecuteComplete", reportCount, BuildReportPreview(reportFileNames), BuildReportMoreSuffix(reportFileNames));
+                if (!_dialogsSuppressed)
+                {
+                    MessageDialogService.ShowInfo("Msg.ExecuteComplete", "Title.ExecuteComplete", reportCount, BuildReportPreview(reportFileNames), BuildReportMoreSuffix(reportFileNames));
+                }
             }
             catch (OperationCanceledException)
             {
                 AnalysisStatusText = "执行已停止。";
-                MessageDialogService.ShowInfo("Msg.ExecuteStopped", "Title.Stopped");
+                if (!_dialogsSuppressed)
+                {
+                    MessageDialogService.ShowInfo("Msg.ExecuteStopped", "Title.Stopped");
+                }
             }
             catch (Exception ex)
             {
-                MessageDialogService.ShowError("Msg.BatchExecuteFailed", "Title.ExecuteFailed", ex.Message);
+                if (!_dialogsSuppressed)
+                {
+                    MessageDialogService.ShowError("Msg.BatchExecuteFailed", "Title.ExecuteFailed", ex.Message);
+                }
             }
             finally
             {
@@ -404,17 +421,26 @@ namespace FolderSync.UI.ViewModels
                 }
 
                 AnalysisStatusText = $"同步完成，共处理 {selected.Count} 个任务。";
-                MessageDialogService.ShowInfo("Msg.SyncComplete", "Title.SyncComplete", selected.Count, BuildReportPreview(reportFileNames), BuildReportMoreSuffix(reportFileNames));
+                if (!_dialogsSuppressed)
+                {
+                    MessageDialogService.ShowInfo("Msg.SyncComplete", "Title.SyncComplete", selected.Count, BuildReportPreview(reportFileNames), BuildReportMoreSuffix(reportFileNames));
+                }
             }
             catch (OperationCanceledException)
             {
                 AnalysisStatusText = "同步已停止。";
-                MessageDialogService.ShowInfo("Msg.SyncStopped", "Title.Stopped");
+                if (!_dialogsSuppressed)
+                {
+                    MessageDialogService.ShowInfo("Msg.SyncStopped", "Title.Stopped");
+                }
             }
             catch (Exception ex)
             {
                 AnalysisStatusText = "同步失败";
-                MessageDialogService.ShowError("Msg.BatchSyncFailed", "Title.SyncFailed", ex.Message);
+                if (!_dialogsSuppressed)
+                {
+                    MessageDialogService.ShowError("Msg.BatchSyncFailed", "Title.SyncFailed", ex.Message);
+                }
             }
             finally
             {
@@ -487,6 +513,34 @@ namespace FolderSync.UI.ViewModels
                 ? "正在停止当前操作..."
                 : $"正在停止{_currentOperationDisplayName}...";
             CommandManager.InvalidateRequerySuggested();
+        }
+
+        /// <summary>
+        /// 导航离开时取消当前操作，并抑制后续完成/停止弹窗，避免用户切换页面后还被打扰。
+        /// </summary>
+        public void CancelPendingOperations()
+        {
+            _dialogsSuppressed = true;
+            try
+            {
+                _currentOperationCts?.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 操作已结束，忽略。
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+            CancelPendingOperations();
+            _currentOperationCts = null;
         }
 
         private SyncTaskDefinition? FindDefinition(string taskId)
@@ -585,17 +639,26 @@ namespace FolderSync.UI.ViewModels
                 var reportFileName = Path.GetFileName(reportPath);
 
                 AnalysisStatusText = $"执行完成：{definition.TaskName}";
-                MessageDialogService.ShowInfo("Msg.RunNowComplete", "Title.ExecuteComplete", definition.TaskName, reportFileName);
+                if (!_dialogsSuppressed)
+                {
+                    MessageDialogService.ShowInfo("Msg.RunNowComplete", "Title.ExecuteComplete", definition.TaskName, reportFileName);
+                }
             }
             catch (OperationCanceledException)
             {
                 AnalysisStatusText = "执行已停止。";
-                MessageDialogService.ShowInfo("Msg.ExecuteStopped", "Title.Stopped");
+                if (!_dialogsSuppressed)
+                {
+                    MessageDialogService.ShowInfo("Msg.ExecuteStopped", "Title.Stopped");
+                }
             }
             catch (Exception ex)
             {
                 AnalysisStatusText = "执行失败";
-                MessageDialogService.ShowError("Msg.RunNowFailed", "Title.ExecuteFailed", ex.Message);
+                if (!_dialogsSuppressed)
+                {
+                    MessageDialogService.ShowError("Msg.RunNowFailed", "Title.ExecuteFailed", ex.Message);
+                }
             }
             finally
             {

@@ -285,6 +285,32 @@ namespace FolderSync.UI.ViewModels
             CommandManager.InvalidateRequerySuggested();
         }
 
+        /// <summary>
+        /// 窗口关闭前取消正在进行的分析/执行，避免后台任务继续消费 FTP 连接。
+        /// </summary>
+        public void CancelPendingOperations()
+        {
+            try
+            {
+                _currentOperationCts?.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 操作已结束，忽略。
+            }
+        }
+
+        /// <summary>
+        /// 关闭前保存分析结果（若存在未保存修改则触发保存，保存由 SaveAnalysis 自己处理异常）。
+        /// </summary>
+        public void SaveBeforeClose()
+        {
+            if (HasUnsavedChanges)
+            {
+                SaveAnalysis();
+            }
+        }
+
         private void ClearItems()
         {
             foreach (var row in Items)

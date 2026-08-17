@@ -30,14 +30,19 @@ namespace FolderSync.UI.ViewModels
         {
             if (viewName is string name)
             {
+                DisposeCurrentView();
                 switch (name)
                 {
                     case "Dashboard":
                         CurrentView = new DashboardViewModel();
                         break;
-                    case "Tasks":
-                        CurrentView = new TasksViewModel(v => CurrentView = v);
-                        break;
+case "Tasks":
+                    CurrentView = new TasksViewModel(v =>
+                    {
+                        DisposeCurrentView();
+                        CurrentView = v;
+                    });
+                    break;
                     case "Logs":
                         CurrentView = new LogsViewModel();
                         break;
@@ -45,6 +50,14 @@ namespace FolderSync.UI.ViewModels
                         CurrentView = new SettingsViewModel();
                         break;
                 }
+            }
+        }
+
+        private void DisposeCurrentView()
+        {
+            if (_currentView is IDisposable disposable)
+            {
+                disposable.Dispose();
             }
         }
     }
