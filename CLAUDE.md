@@ -181,7 +181,8 @@ UI/
 │  └─ Strings.en-US.xaml
 ├─ Services/
 │  ├─ TrayIconService.cs
-│  └─ StartupRegistrationService.cs
+│  ├─ StartupRegistrationService.cs
+│  └─ MessageDialogService.cs
 ├─ ViewModels/
 │  ├─ ViewModelBase.cs
 │  ├─ RelayCommand.cs
@@ -234,6 +235,7 @@ UI/
 27. 已完成：修复 FTP 递归列举在部分服务端未返回条目 `FullName` 时的路径补全错误；嵌套目录中的目标文件会基于当前目录正确还原相对路径，避免 `Local -> FTP` 分析把 FTP 已存在文件误判为“仅源端存在，需创建”。
 28. 待增强：双向冲突策略可扩展（例如保留双版本、副本命名策略、交互式冲突处理）。
 29. 已完成：Dashboard 显示真实统计（活动任务数、今日同步文件数、今日失败任务数，均由后台线程扫描任务仓库与 `log` 报告汇总）；任务列表支持“立即运行”，点击后直接分析并执行该任务一次，不受调度计划与手动触发标记影响。
+30. 已完成：引入 `MessageDialogService`，所有 ViewModel 的 `MessageBox.Show` 统一改走本地化资源键（`Msg.*`/`Title.*`），位占位符支持格式化参数；`Window` 级硬编码中文文案保留，ViewModel 侧已清零。
 
 ---
 
