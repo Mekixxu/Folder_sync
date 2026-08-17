@@ -204,6 +204,7 @@ namespace FolderSync.Core.Sync
                 var isSendOnce = task.SyncMode == SyncMode.OneWaySendOnce;
                 var stateStore = isSendOnce ? new OneWayDeliveryStateStore() : null;
                 Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null;
+                var pendingDeliveryRecords = new List<OneWayDeliveryRecord>();
                 if (stateStore != null)
                 {
                     await stateStore.InitializeAsync(cancellationToken);
@@ -269,22 +270,22 @@ namespace FolderSync.Core.Sync
 
                         if (item.Direction == AnalysisDirection.AToB)
                         {
-                            await CopyPathAsync(sourceFs, destFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
+                            await CopyPathAsync(sourceFs, destFs, item.RelativePath, item.IsDirectory, isSendOnce, pendingDeliveryRecords, deliveredRecords, cancellationToken);
                         }
                         else if (item.Direction == AnalysisDirection.BToA)
                         {
-                            await CopyPathAsync(destFs, sourceFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
+                            await CopyPathAsync(destFs, sourceFs, item.RelativePath, item.IsDirectory, isSendOnce, pendingDeliveryRecords, deliveredRecords, cancellationToken);
                         }
                         else
                         {
                             var sourceNewer = (item.SourceLastWrite ?? DateTime.MinValue) >= (item.DestLastWrite ?? DateTime.MinValue);
                             if (sourceNewer)
                             {
-                                await CopyPathAsync(sourceFs, destFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
+                                await CopyPathAsync(sourceFs, destFs, item.RelativePath, item.IsDirectory, isSendOnce, pendingDeliveryRecords, deliveredRecords, cancellationToken);
                             }
                             else
                             {
-                                await CopyPathAsync(destFs, sourceFs, item.RelativePath, item.IsDirectory, isSendOnce, task.Id, stateStore, deliveredRecords, cancellationToken);
+                                await CopyPathAsync(destFs, sourceFs, item.RelativePath, item.IsDirectory, isSendOnce, pendingDeliveryRecords, deliveredRecords, cancellationToken);
                             }
                         }
 
@@ -313,6 +314,12 @@ namespace FolderSync.Core.Sync
                     }
                 }
 
+                // 一次性投递状态批量落盘，避免每文件开启独立连接。
+                if (pendingDeliveryRecords.Count > 0 && stateStore != null)
+                {
+                    await stateStore.UpsertRangeAsync(task.Id, pendingDeliveryRecords, cancellationToken);
+                }
+
                 // 双向模式手动执行成功后刷新 SQLite 基线，避免后续定时运行基于陈旧基线。
                 if (task.SyncMode == SyncMode.TwoWay && report.FailedFiles == 0)
                 {
@@ -334,8 +341,7 @@ namespace FolderSync.Core.Sync
             string path,
             bool isDirectory,
             bool isSendOnce,
-            string taskId,
-            OneWayDeliveryStateStore? stateStore,
+            List<OneWayDeliveryRecord> pendingDeliveryRecords,
             Dictionary<string, OneWayDeliveryRecord>? deliveredRecords,
             CancellationToken cancellationToken)
         {
@@ -349,10 +355,10 @@ namespace FolderSync.Core.Sync
             if (isDirectory)
             {
                 await to.CreateDirectoryAsync(path, cancellationToken);
-                if (isSendOnce && sourceItem != null && stateStore != null)
+                if (isSendOnce && sourceItem != null)
                 {
                     var directoryRecord = OneWayDeliverySupport.CreateDeliveredRecordFromCopy(path, sourceItem, sourceHash: null);
-                    await stateStore.UpsertAsync(taskId, directoryRecord, cancellationToken);
+                    pendingDeliveryRecords.Add(directoryRecord);
                     if (deliveredRecords != null)
                     {
                         deliveredRecords[path] = directoryRecord;
@@ -361,11 +367,11 @@ namespace FolderSync.Core.Sync
                 return;
             }
 
-            if (isSendOnce && sourceItem != null && stateStore != null)
+            if (isSendOnce && sourceItem != null)
             {
                 var copiedHash = await OneWayDeliverySupport.CopyFileAndComputeHashAsync(from, to, path, cancellationToken);
                 var record = OneWayDeliverySupport.CreateDeliveredRecordFromCopy(path, sourceItem, copiedHash);
-                await stateStore.UpsertAsync(taskId, record, cancellationToken);
+                pendingDeliveryRecords.Add(record);
                 if (deliveredRecords != null)
                 {
                     deliveredRecords[path] = record;

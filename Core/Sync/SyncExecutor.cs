@@ -537,6 +537,7 @@ namespace FolderSync.Core.Sync
             Dictionary<string, OneWayDeliveryRecord>? deliveredRecords = null)
         {
             int completed = 0;
+            var newlyDelivered = new List<OneWayDeliveryRecord>();
             foreach (var action in actions)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -558,7 +559,7 @@ namespace FolderSync.Core.Sync
                                             action.SourceItem.Path,
                                             action.SourceItem,
                                             sourceHash: null);
-                                        await _oneWayDeliveryStateStore.UpsertAsync(_taskId, directoryRecord, cancellationToken);
+                                        newlyDelivered.Add(directoryRecord);
                                         if (deliveredRecords != null)
                                         {
                                             deliveredRecords[action.SourceItem.Path] = directoryRecord;
@@ -577,7 +578,7 @@ namespace FolderSync.Core.Sync
                                     {
                                         var copiedHash = await OneWayDeliverySupport.CopyFileAndComputeHashAsync(_sourceFs, _destFs, action.SourceItem.Path, cancellationToken);
                                         var record = OneWayDeliverySupport.CreateDeliveredRecordFromCopy(action.SourceItem.Path, action.SourceItem, copiedHash);
-                                        await _oneWayDeliveryStateStore.UpsertAsync(_taskId, record, cancellationToken);
+                                        newlyDelivered.Add(record);
                                         if (deliveredRecords != null)
                                         {
                                             deliveredRecords[action.SourceItem.Path] = record;
@@ -632,6 +633,11 @@ namespace FolderSync.Core.Sync
                 }
                 completed++;
                 ProgressChanged?.Invoke(this, new SyncProgressEventArgs(completed, actions.Count, itemName, action.ActionType));
+            }
+
+            if (newlyDelivered.Count > 0)
+            {
+                await _oneWayDeliveryStateStore.UpsertRangeAsync(_taskId, newlyDelivered, cancellationToken);
             }
         }
 

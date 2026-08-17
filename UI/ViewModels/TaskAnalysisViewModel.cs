@@ -44,6 +44,10 @@ namespace FolderSync.UI.ViewModels
         private readonly SyncTaskDefinition _task;
         private readonly TaskAnalysisService _service;
         private readonly Action? _onSaved;
+        private readonly System.Windows.Threading.DispatcherTimer _summaryDebounceTimer;
+        private bool _summaryDirty;
+        private int _selectedSyncFileCount;
+        private string _totalSyncSizeText = string.Empty;
 
         public ObservableCollection<TaskAnalysisRowViewModel> Items { get; } = new();
 
@@ -109,16 +113,26 @@ namespace FolderSync.UI.ViewModels
         public string TaskTitle => $"分析结果 - {_task.TaskName}";
         public bool IsBusy => IsLoading || IsExecuting;
         public bool IsStopRequested => _currentOperationCts?.IsCancellationRequested == true;
-        public int SelectedSyncFileCount => Items.Count(i => i.ShouldSync && !i.IsDirectory);
-        public string TotalSyncSizeText => FormatBytes(Items
-            .Where(i => i.ShouldSync && !i.IsDirectory)
-            .Sum(i => i.SourceSize ?? 0L));
+        public int SelectedSyncFileCount => _selectedSyncFileCount;
+        public string TotalSyncSizeText => _totalSyncSizeText;
 
         public TaskAnalysisViewModel(SyncTaskDefinition task, TaskAnalysisService? service = null, Action? onSaved = null)
         {
             _task = task;
             _service = service ?? new TaskAnalysisService();
             _onSaved = onSaved;
+            _summaryDebounceTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(300)
+            };
+            _summaryDebounceTimer.Tick += (_, _) =>
+            {
+                _summaryDebounceTimer.Stop();
+                if (_summaryDirty)
+                {
+                    RefreshSummaryCore();
+                }
+            };
             ExecuteSelectedCommand = new RelayCommand(async _ => await ExecuteSelectedAsync(), _ => !IsBusy && Items.Any(i => i.ShouldSync));
             RefreshAnalysisCommand = new RelayCommand(async _ => await LoadAnalysisAsync(useSavedIfAvailable: false), _ => !IsBusy);
             SaveAnalysisCommand = new RelayCommand(_ => SaveAnalysis(), _ => !IsBusy && Items.Count > 0);
@@ -140,17 +154,24 @@ namespace FolderSync.UI.ViewModels
                 ResetBusyProgressDisplay();
                 CommandManager.InvalidateRequerySuggested();
                 var token = operationCts.Token;
-                var results = await Task.Run(async () =>
+                var rows = await Task.Run(async () =>
                 {
-                    return useSavedIfAvailable && _service.HasSavedAnalysis(_task)
-                        ? _service.GetSavedAnalysis(_task)
-                        : await _service.AnalyzeAsync(_task, token);
+                    List<TaskAnalysisRowViewModel>? result;
+                    if (useSavedIfAvailable && _service.HasSavedAnalysis(_task))
+                    {
+                        result = _service.GetSavedAnalysis(_task).Select(MapToRow).ToList();
+                    }
+                    else
+                    {
+                        result = (await _service.AnalyzeAsync(_task, token)).Select(MapToRow).ToList();
+                    }
+
+                    return result;
                 }, token);
 
                 ClearItems();
-                foreach (var i in results)
+                foreach (var row in rows)
                 {
-                    var row = MapToRow(i);
                     row.PropertyChanged += OnRowPropertyChanged;
                     Items.Add(row);
                 }
@@ -318,12 +339,36 @@ namespace FolderSync.UI.ViewModels
             if (e.PropertyName == nameof(TaskAnalysisRowViewModel.ShouldSync))
             {
                 HasUnsavedChanges = true;
-                RaiseSummaryPropertiesChanged();
+                ScheduleSummaryRefresh();
+            }
+        }
+
+        private void ScheduleSummaryRefresh()
+        {
+            _summaryDirty = true;
+            if (!_summaryDebounceTimer.IsEnabled)
+            {
+                _summaryDebounceTimer.Start();
+            }
+            else
+            {
+                _summaryDebounceTimer.Stop();
+                _summaryDebounceTimer.Start();
             }
         }
 
         private void RaiseSummaryPropertiesChanged()
         {
+            _summaryDirty = true;
+            RefreshSummaryCore();
+        }
+
+        private void RefreshSummaryCore()
+        {
+            _summaryDirty = false;
+            var selected = Items.Where(i => i.ShouldSync && !i.IsDirectory).ToList();
+            _selectedSyncFileCount = selected.Count;
+            _totalSyncSizeText = FormatBytes(selected.Sum(i => i.SourceSize ?? 0L));
             OnPropertyChanged(nameof(SelectedSyncFileCount));
             OnPropertyChanged(nameof(TotalSyncSizeText));
         }

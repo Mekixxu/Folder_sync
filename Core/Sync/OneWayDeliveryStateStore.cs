@@ -112,6 +112,59 @@ namespace FolderSync.Core.Sync
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        /// <summary>
+        /// 批量写入投递状态：单连接 + 单事务，避免对每条记录都开启连接。
+        /// </summary>
+        public async Task UpsertRangeAsync(string taskId, IReadOnlyCollection<OneWayDeliveryRecord> records, CancellationToken cancellationToken = default)
+        {
+            if (records.Count == 0)
+            {
+                return;
+            }
+
+            await using var conn = new SqliteConnection(_connectionString);
+            await conn.OpenAsync(cancellationToken);
+            await using var transaction = (SqliteTransaction)await conn.BeginTransactionAsync(cancellationToken);
+            var cmd = conn.CreateCommand();
+            cmd.Transaction = transaction;
+            cmd.CommandText =
+                """
+                INSERT INTO one_way_delivery_state (
+                    task_id, relative_path, is_directory, source_size_bytes, source_last_write_utc, source_hash, delivered_utc
+                ) VALUES (
+                    $taskId, $path, $isDirectory, $size, $lastWrite, $hash, $deliveredUtc
+                )
+                ON CONFLICT(task_id, relative_path) DO UPDATE SET
+                    is_directory = excluded.is_directory,
+                    source_size_bytes = excluded.source_size_bytes,
+                    source_last_write_utc = excluded.source_last_write_utc,
+                    source_hash = excluded.source_hash,
+                    delivered_utc = excluded.delivered_utc;
+                """;
+            var pTaskId = cmd.Parameters.Add("$taskId", SqliteType.Text);
+            var pPath = cmd.Parameters.Add("$path", SqliteType.Text);
+            var pIsDirectory = cmd.Parameters.Add("$isDirectory", SqliteType.Integer);
+            var pSize = cmd.Parameters.Add("$size", SqliteType.Integer);
+            var pLastWrite = cmd.Parameters.Add("$lastWrite", SqliteType.Text);
+            var pHash = cmd.Parameters.Add("$hash", SqliteType.Text);
+            var pDeliveredUtc = cmd.Parameters.Add("$deliveredUtc", SqliteType.Text);
+
+            foreach (var record in records)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                pTaskId.Value = taskId;
+                pPath.Value = record.RelativePath;
+                pIsDirectory.Value = record.IsDirectory ? 1 : 0;
+                pSize.Value = record.SourceSize;
+                pLastWrite.Value = record.SourceLastWriteUtc?.ToString("O") ?? (object)DBNull.Value;
+                pHash.Value = record.SourceHash ?? (object)DBNull.Value;
+                pDeliveredUtc.Value = record.DeliveredUtc.ToString("O");
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+
         public async Task ResetTaskAsync(string taskId, CancellationToken cancellationToken = default)
         {
             await using var conn = new SqliteConnection(_connectionString);
