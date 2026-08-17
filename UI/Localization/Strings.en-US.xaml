@@ -70,4 +70,72 @@
     <sys:String x:Key="Logs.DirectoryLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Log Directory</sys:String>
     <sys:String x:Key="Logs.PathLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">Selected File</sys:String>
     <sys:String x:Key="Logs.Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">Loading log files in background...</sys:String>
+
+    <!-- Dialog titles -->
+    <sys:String x:Key="Title.AnalysisFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Analysis Failed</sys:String>
+    <sys:String x:Key="Title.SaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Save Failed</sys:String>
+    <sys:String x:Key="Title.Saved" xmlns:sys="clr-namespace:System;assembly=mscorlib">Saved</sys:String>
+    <sys:String x:Key="Title.ExecuteComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execution Complete</sys:String>
+    <sys:String x:Key="Title.ExecuteFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execution Failed</sys:String>
+    <sys:String x:Key="Title.SyncComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync Complete</sys:String>
+    <sys:String x:Key="Title.SyncFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync Failed</sys:String>
+    <sys:String x:Key="Title.Stopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Stopped</sys:String>
+    <sys:String x:Key="Title.ConfirmDelete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Delete Task Confirmation</sys:String>
+    <sys:String x:Key="Title.DeleteFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Delete Failed</sys:String>
+    <sys:String x:Key="Title.Unavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">Unavailable</sys:String>
+    <sys:String x:Key="Title.NothingToSync" xmlns:sys="clr-namespace:System;assembly=mscorlib">Nothing to Sync</sys:String>
+    <sys:String x:Key="Title.ConfirmReset" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset Send-Once State</sys:String>
+    <sys:String x:Key="Title.ResetDone" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset Successful</sys:String>
+    <sys:String x:Key="Title.ResetFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset Failed</sys:String>
+    <sys:String x:Key="Title.FilterConflict" xmlns:sys="clr-namespace:System;assembly=mscorlib">Filter Rule Conflict</sys:String>
+    <sys:String x:Key="Title.ProtocolTip" xmlns:sys="clr-namespace:System;assembly=mscorlib">Protocol Tip</sys:String>
+    <sys:String x:Key="Title.FtpTestResult" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP Test Result</sys:String>
+    <sys:String x:Key="Title.FtpTestSuccess" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP Test Successful</sys:String>
+    <sys:String x:Key="Title.FtpTestTimeout" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP Test Timeout</sys:String>
+    <sys:String x:Key="Title.FtpTestFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP Test Failed</sys:String>
+    <sys:String x:Key="Title.TriggerInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">Invalid Trigger</sys:String>
+    <sys:String x:Key="Title.FtpPasswordReadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed to Read FTP Password</sys:String>
+    <sys:String x:Key="Title.FtpConfigInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">Invalid FTP Configuration</sys:String>
+    <sys:String x:Key="Title.FtpConfigIncomplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Incomplete FTP Configuration</sys:String>
+
+    <!-- Dialog messages -->
+    <sys:String x:Key="Msg.AnalysisFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Analysis failed: {0}</sys:String>
+    <sys:String x:Key="Msg.AnalysisSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">Analysis result saved.</sys:String>
+    <sys:String x:Key="Msg.SaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Save failed: {0}</sys:String>
+    <sys:String x:Key="Msg.SaveTaskFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed to save task: {0}</sys:String>
+    <sys:String x:Key="Msg.TaskSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">Task saved.</sys:String>
+    <sys:String x:Key="Msg.ExecuteFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execution failed: {0}</sys:String>
+    <sys:String x:Key="Msg.BatchExecuteFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Bulk execution failed: {0}</sys:String>
+    <sys:String x:Key="Msg.RunNowFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Run now failed: {0}</sys:String>
+    <sys:String x:Key="Msg.AnalysisStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Analysis stopped.</sys:String>
+    <sys:String x:Key="Msg.ExecuteStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execution stopped. If files were being transferred, any incomplete destination files have been removed.</sys:String>
+    <sys:String x:Key="Msg.SyncStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync stopped. If files were being transferred, any incomplete destination files have been removed.</sys:String>
+    <sys:String x:Key="Msg.BatchAnalysisFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Bulk analysis failed: {0}</sys:String>
+    <sys:String x:Key="Msg.BatchSyncFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Bulk sync failed: {0}</sys:String>
+    <sys:String x:Key="Msg.TaskNotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">Task definition not found.</sys:String>
+    <sys:String x:Key="Msg.BusyRunning" xmlns:sys="clr-namespace:System;assembly=mscorlib">Another task is already running. Please try again later.</sys:String>
+    <sys:String x:Key="Msg.NothingToSync" xmlns:sys="clr-namespace:System;assembly=mscorlib">All source files were excluded by the filter rules. Nothing to sync.</sys:String>
+    <sys:String x:Key="Msg.ResetUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">Only one-way send-once tasks support state reset.</sys:String>
+    <sys:String x:Key="Msg.ResetDone" xmlns:sys="clr-namespace:System;assembly=mscorlib">The task's send-once state has been reset.</sys:String>
+    <sys:String x:Key="Msg.ResetFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed to reset send-once state: {0}</sys:String>
+    <sys:String x:Key="Msg.ConfirmDeleteTask" xmlns:sys="clr-namespace:System;assembly=mscorlib">Delete task "{0}"?&#10;&#10;This removes the schedule and clears the send-once state. This cannot be undone.</sys:String>
+    <sys:String x:Key="Msg.ConfirmResetSendOnce" xmlns:sys="clr-namespace:System;assembly=mscorlib">Reset the send-once state of task "{0}"?&#10;&#10;After reset, previously synced files can be synced again on the next run.</sys:String>
+    <sys:String x:Key="Msg.FilterConflict" xmlns:sys="clr-namespace:System;assembly=mscorlib">Whitelist and blacklist rules conflict. Saving has been blocked:&#10;&#10;{0}</sys:String>
+    <sys:String x:Key="Msg.FtpManualInput" xmlns:sys="clr-namespace:System;assembly=mscorlib">Enter the FTP path manually (e.g. ftp://host/path). Fill in credentials in the FTP authentication section below, not in the URL.</sys:String>
+    <sys:String x:Key="Msg.FtpBasePathUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0} connected successfully, but the base path does not exist or the current account lacks access.</sys:String>
+    <sys:String x:Key="Msg.FtpTestSuccess" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0} FTP connection succeeded. Credentials and base path are valid.</sys:String>
+    <sys:String x:Key="Msg.FtpTestTimeout" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0} FTP connection timed out (over {1} seconds). Check the host address, port, firewall, or server response.</sys:String>
+    <sys:String x:Key="Msg.FtpTestFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0} FTP connection failed: {1}</sys:String>
+    <sys:String x:Key="Msg.TriggerInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">Select exactly one trigger type: Manual, Periodic, or Cron.</sys:String>
+    <sys:String x:Key="Msg.TriggerIntervalInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">The interval value for periodic triggers must be a positive integer.</sys:String>
+    <sys:String x:Key="Msg.TriggerCronInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">Invalid Cron expression. Check the 6-field format (second minute hour day month week).</sys:String>
+    <sys:String x:Key="Msg.FtpPasswordDecryptFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed to decrypt the FTP password for {0}: {1}</sys:String>
+    <sys:String x:Key="Msg.FtpPathInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">Invalid FTP path for {0}. Use the ftp://host[:port]/basePath format.</sys:String>
+    <sys:String x:Key="Msg.FtpPathHasCredentials" xmlns:sys="clr-namespace:System;assembly=mscorlib">The FTP path for {0} contains a username or password. Fill credentials in the auth fields, do not embed them in the URL.</sys:String>
+    <sys:String x:Key="Msg.FtpCredentialsIncomplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0} uses account/password login. Please fill in both username and password.</sys:String>
+    <sys:String x:Key="Msg.ExecuteComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Bulk execution complete, {0} task(s) processed.&#10;&#10;Generated log/report files:&#10;{1}{2}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
+    <sys:String x:Key="Msg.SyncComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync complete, {0} task(s) processed.&#10;&#10;Generated log/report files:&#10;{1}{2}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
+    <sys:String x:Key="Msg.ExecuteSelectedComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Executed {0} item(s).&#10;&#10;Generated log/report files:&#10;- {1}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
+    <sys:String x:Key="Msg.RunNowComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Task "{0}" executed immediately.&#10;&#10;Generated log/report files:&#10;- {1}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
+    <sys:String x:Key="Msg.ReportMoreFiles" xmlns:sys="clr-namespace:System;assembly=mscorlib">&#10;... {0} more file(s) were also written to the log folder.</sys:String>
 </ResourceDictionary>

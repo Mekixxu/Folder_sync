@@ -70,4 +70,72 @@
     <sys:String x:Key="Logs.DirectoryLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">日志目录</sys:String>
     <sys:String x:Key="Logs.PathLabel" xmlns:sys="clr-namespace:System;assembly=mscorlib">当前选中文件</sys:String>
     <sys:String x:Key="Logs.Loading" xmlns:sys="clr-namespace:System;assembly=mscorlib">正在后台加载日志文件...</sys:String>
+
+    <!-- 对话框标题 -->
+    <sys:String x:Key="Title.AnalysisFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">分析失败</sys:String>
+    <sys:String x:Key="Title.SaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存失败</sys:String>
+    <sys:String x:Key="Title.Saved" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存成功</sys:String>
+    <sys:String x:Key="Title.ExecuteComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">执行完成</sys:String>
+    <sys:String x:Key="Title.ExecuteFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">执行失败</sys:String>
+    <sys:String x:Key="Title.SyncComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">同步完成</sys:String>
+    <sys:String x:Key="Title.SyncFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">同步失败</sys:String>
+    <sys:String x:Key="Title.Stopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">已停止</sys:String>
+    <sys:String x:Key="Title.ConfirmDelete" xmlns:sys="clr-namespace:System;assembly=mscorlib">删除任务确认</sys:String>
+    <sys:String x:Key="Title.DeleteFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">删除失败</sys:String>
+    <sys:String x:Key="Title.Unavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">操作不可用</sys:String>
+    <sys:String x:Key="Title.NothingToSync" xmlns:sys="clr-namespace:System;assembly=mscorlib">无同步内容</sys:String>
+    <sys:String x:Key="Title.ConfirmReset" xmlns:sys="clr-namespace:System;assembly=mscorlib">重置一次性同步状态</sys:String>
+    <sys:String x:Key="Title.ResetDone" xmlns:sys="clr-namespace:System;assembly=mscorlib">重置成功</sys:String>
+    <sys:String x:Key="Title.ResetFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">重置失败</sys:String>
+    <sys:String x:Key="Title.FilterConflict" xmlns:sys="clr-namespace:System;assembly=mscorlib">过滤规则冲突</sys:String>
+    <sys:String x:Key="Title.ProtocolTip" xmlns:sys="clr-namespace:System;assembly=mscorlib">协议提示</sys:String>
+    <sys:String x:Key="Title.FtpTestResult" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP 测试结果</sys:String>
+    <sys:String x:Key="Title.FtpTestSuccess" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP 测试成功</sys:String>
+    <sys:String x:Key="Title.FtpTestTimeout" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP 测试超时</sys:String>
+    <sys:String x:Key="Title.FtpTestFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP 测试失败</sys:String>
+    <sys:String x:Key="Title.TriggerInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">触发配置无效</sys:String>
+    <sys:String x:Key="Title.FtpPasswordReadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP 密码读取失败</sys:String>
+    <sys:String x:Key="Title.FtpConfigInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP 配置无效</sys:String>
+    <sys:String x:Key="Title.FtpConfigIncomplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP 配置不完整</sys:String>
+
+    <!-- 对话框消息 -->
+    <sys:String x:Key="Msg.AnalysisFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">分析失败：{0}</sys:String>
+    <sys:String x:Key="Msg.AnalysisSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">分析结果已保存。</sys:String>
+    <sys:String x:Key="Msg.SaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存失败：{0}</sys:String>
+    <sys:String x:Key="Msg.SaveTaskFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存任务失败：{0}</sys:String>
+    <sys:String x:Key="Msg.TaskSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">任务已保存。</sys:String>
+    <sys:String x:Key="Msg.ExecuteFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">执行失败：{0}</sys:String>
+    <sys:String x:Key="Msg.BatchExecuteFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">批量执行失败：{0}</sys:String>
+    <sys:String x:Key="Msg.RunNowFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">立即运行失败：{0}</sys:String>
+    <sys:String x:Key="Msg.AnalysisStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">分析已停止。</sys:String>
+    <sys:String x:Key="Msg.ExecuteStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">执行已停止。若停止时正在传输文件，未完成的目标文件已删除。</sys:String>
+    <sys:String x:Key="Msg.SyncStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">同步已停止。若停止时正在传输文件，未完成的目标文件已删除。</sys:String>
+    <sys:String x:Key="Msg.BatchAnalysisFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">批量分析失败：{0}</sys:String>
+    <sys:String x:Key="Msg.BatchSyncFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">批量同步失败：{0}</sys:String>
+    <sys:String x:Key="Msg.TaskNotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">未找到任务定义。</sys:String>
+    <sys:String x:Key="Msg.BusyRunning" xmlns:sys="clr-namespace:System;assembly=mscorlib">当前已有任务正在运行，请稍后再试。</sys:String>
+    <sys:String x:Key="Msg.NothingToSync" xmlns:sys="clr-namespace:System;assembly=mscorlib">源文件被过滤规则全部排除，无需同步。</sys:String>
+    <sys:String x:Key="Msg.ResetUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">仅单向一次性同步任务支持重置状态。</sys:String>
+    <sys:String x:Key="Msg.ResetDone" xmlns:sys="clr-namespace:System;assembly=mscorlib">该任务的一次性同步状态已重置。</sys:String>
+    <sys:String x:Key="Msg.ResetFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">重置一次性同步状态失败：{0}</sys:String>
+    <sys:String x:Key="Msg.ConfirmDeleteTask" xmlns:sys="clr-namespace:System;assembly=mscorlib">确定要删除任务“{0}”吗？&#10;&#10;此操作会移除定时调度并清理一次性同步状态，且无法撤销。</sys:String>
+    <sys:String x:Key="Msg.ConfirmResetSendOnce" xmlns:sys="clr-namespace:System;assembly=mscorlib">确定要重置任务“{0}”的一次性同步状态吗？&#10;&#10;重置后，下次运行会允许历史文件重新同步。</sys:String>
+    <sys:String x:Key="Msg.FilterConflict" xmlns:sys="clr-namespace:System;assembly=mscorlib">检测到白名单与黑名单存在冲突，已阻止保存：&#10;&#10;{0}</sys:String>
+    <sys:String x:Key="Msg.FtpManualInput" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP 路径请手动输入（例如 ftp://host/path）。账号密码请在下方 FTP 认证配置中填写，不要写入 URL。</sys:String>
+    <sys:String x:Key="Msg.FtpBasePathUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0}连接成功，但基础路径不存在或当前账号无权访问。</sys:String>
+    <sys:String x:Key="Msg.FtpTestSuccess" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0}FTP 连接成功，认证信息和基础路径均有效。</sys:String>
+    <sys:String x:Key="Msg.FtpTestTimeout" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0}FTP 连接超时（超过 {1} 秒）。请检查主机地址、端口、防火墙或服务器响应状态。</sys:String>
+    <sys:String x:Key="Msg.FtpTestFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0}FTP 连接失败：{1}</sys:String>
+    <sys:String x:Key="Msg.TriggerInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">请选择一种且仅一种触发方式：手动、周期或 Cron。</sys:String>
+    <sys:String x:Key="Msg.TriggerIntervalInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">周期触发的间隔数值必须为正整数。</sys:String>
+    <sys:String x:Key="Msg.TriggerCronInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">Cron 表达式无效，请检查 6 段格式（秒 分 时 日 月 周）。</sys:String>
+    <sys:String x:Key="Msg.FtpPasswordDecryptFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0}的 FTP 密码无法解密：{1}</sys:String>
+    <sys:String x:Key="Msg.FtpPathInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0}的 FTP 路径无效，请使用 ftp://host[:port]/basePath 格式。</sys:String>
+    <sys:String x:Key="Msg.FtpPathHasCredentials" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0}的 FTP 路径中包含用户名或密码。请在认证字段中填写账号密码，不要在 URL 中内嵌凭据。</sys:String>
+    <sys:String x:Key="Msg.FtpCredentialsIncomplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0}已选择账号密码登录，请完整填写用户名和密码。</sys:String>
+    <sys:String x:Key="Msg.ExecuteComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">批量执行完成，共处理 {0} 个任务。&#10;&#10;生成的日志/报告文件：&#10;{1}{2}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
+    <sys:String x:Key="Msg.SyncComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">同步完成，共处理 {0} 个任务。&#10;&#10;生成的日志/报告文件：&#10;{1}{2}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
+    <sys:String x:Key="Msg.ExecuteSelectedComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">已执行 {0} 项。&#10;&#10;生成的日志/报告文件：&#10;- {1}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
+    <sys:String x:Key="Msg.RunNowComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">任务“{0}”已立即执行完成。&#10;&#10;生成的日志/报告文件：&#10;- {1}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
+    <sys:String x:Key="Msg.ReportMoreFiles" xmlns:sys="clr-namespace:System;assembly=mscorlib">&#10;... 其余 {0} 个文件也已写入 log 文件夹。</sys:String>
 </ResourceDictionary>

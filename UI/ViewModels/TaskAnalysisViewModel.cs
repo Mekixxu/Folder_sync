@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using FolderSync.Core.Config;
 using FolderSync.Core.Reporting;
 using FolderSync.Core.Sync;
+using FolderSync.UI.Services;
 
 namespace FolderSync.UI.ViewModels
 {
@@ -162,7 +163,7 @@ namespace FolderSync.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"分析失败：{ex.Message}", "分析失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.AnalysisFailed", "Title.AnalysisFailed", ex.Message);
             }
             finally
             {
@@ -179,11 +180,11 @@ namespace FolderSync.UI.ViewModels
                 _service.SaveAnalysis(_task, BuildAnalysisItemsFromRows());
                 _onSaved?.Invoke();
                 HasUnsavedChanges = false;
-                MessageBox.Show("分析结果已保存。", "保存成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.AnalysisSaved", "Title.Saved");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"保存失败：{ex.Message}", "保存失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.SaveFailed", "Title.SaveFailed", ex.Message);
             }
         }
 
@@ -214,23 +215,19 @@ namespace FolderSync.UI.ViewModels
 
                 _onSaved?.Invoke();
                 HasUnsavedChanges = false;
-                MessageBox.Show(
-                    $"已执行 {selected.Count(x => x.ShouldSync)} 项。{Environment.NewLine}{Environment.NewLine}生成的日志/报告文件：{Environment.NewLine}- {Path.GetFileName(executionResult.reportPath)}{Environment.NewLine}{Environment.NewLine}请到程序目录下的 log 文件夹中自行打开。",
-                    "执行完成",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                MessageDialogService.ShowInfo(
+                    "Msg.ExecuteSelectedComplete",
+                    "Title.ExecuteComplete",
+                    selected.Count(x => x.ShouldSync),
+                    Path.GetFileName(executionResult.reportPath));
             }
             catch (OperationCanceledException)
             {
-                MessageBox.Show(
-                    "同步已停止。若停止时正在传输文件，未完成的目标文件已删除。",
-                    "已停止",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.SyncStopped", "Title.Stopped");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"执行失败：{ex.Message}", "执行失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.ExecuteFailed", "Title.ExecuteFailed", ex.Message);
             }
             finally
             {

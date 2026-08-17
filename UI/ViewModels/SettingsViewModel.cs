@@ -114,11 +114,7 @@ namespace FolderSync.UI.ViewModels
                 app.RefreshTrayIconText();
             }
 
-            MessageBox.Show(
-                System.Windows.Application.Current.TryFindResource("Settings.Saved")?.ToString() ?? "设置已保存。",
-                System.Windows.Application.Current.TryFindResource("Settings.Tip")?.ToString() ?? "提示",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            MessageDialogService.ShowInfo("Settings.Saved", "Settings.Tip");
         }
     }
 
