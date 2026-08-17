@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
 using Quartz;
@@ -12,6 +11,7 @@ using FolderSync.Core.Config;
 using FolderSync.Core.Filters;
 using FolderSync.Core.Scheduler;
 using FolderSync.Core.Sync;
+using FolderSync.UI.Services;
 
 namespace FolderSync.UI.ViewModels
 {
@@ -304,11 +304,7 @@ namespace FolderSync.UI.ViewModels
                 var conflictMessage = string.Join(
                     Environment.NewLine,
                     conflicts.Select(c => $"• {c.Type}: {c.Message}"));
-                MessageBox.Show(
-                    "检测到白名单与黑名单存在冲突，已阻止保存：\n\n" + conflictMessage,
-                    "过滤规则冲突",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                MessageDialogService.ShowWarning("Msg.FilterConflict", "Title.FilterConflict", conflictMessage);
                 return;
             }
             try
@@ -328,12 +324,12 @@ namespace FolderSync.UI.ViewModels
                     await SchedulerManager.Instance.AddOrUpdateJobAsync(task.Id, task.TaskName, cron, executor);
                 }
 
-                MessageBox.Show("任务已保存。", "保存成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.TaskSaved", "Title.Saved");
                 _goBackAction?.Invoke();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"保存任务失败：{ex.Message}", "保存失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.SaveTaskFailed", "Title.SaveFailed", ex.Message);
             }
         }
 
@@ -395,11 +391,7 @@ namespace FolderSync.UI.ViewModels
             var protocol = isSource ? SourceProtocol : DestProtocol;
             if (string.Equals(protocol, "FTP", StringComparison.OrdinalIgnoreCase))
             {
-                MessageBox.Show(
-                    "FTP 路径请手动输入（例如 ftp://host/path）。账号密码请在下方 FTP 认证配置中填写，不要写入 URL。",
-                    "协议提示",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.FtpManualInput", "Title.ProtocolTip");
                 return;
             }
 
@@ -458,28 +450,19 @@ namespace FolderSync.UI.ViewModels
 
                 if (testResult.ResultType == FtpConnectionTestResultType.BasePathUnavailable)
                 {
-                    ShowOwnedMessageBox(
-                        $"{displayName}连接成功，但基础路径不存在或当前账号无权访问。",
-                        "FTP 测试结果",
-                        MessageBoxImage.Warning);
+                    MessageDialogService.ShowWarning("Msg.FtpBasePathUnavailable", "Title.FtpTestResult", displayName);
                     return;
                 }
 
-                ShowOwnedMessageBox(
-                    $"{displayName}FTP 连接成功，认证信息和基础路径均有效。",
-                    "FTP 测试成功",
-                    MessageBoxImage.Information);
+                MessageDialogService.ShowInfo("Msg.FtpTestSuccess", "Title.FtpTestSuccess", displayName);
             }
             catch (OperationCanceledException)
             {
-                ShowOwnedMessageBox(
-                    $"{displayName}FTP 连接超时（超过 {FtpConnectionTestTimeoutSeconds} 秒）。请检查主机地址、端口、防火墙或服务器响应状态。",
-                    "FTP 测试超时",
-                    MessageBoxImage.Warning);
+                MessageDialogService.ShowWarning("Msg.FtpTestTimeout", "Title.FtpTestTimeout", displayName, FtpConnectionTestTimeoutSeconds);
             }
             catch (Exception ex)
             {
-                ShowOwnedMessageBox($"{displayName}FTP 连接失败：{ex.Message}", "FTP 测试失败", MessageBoxImage.Error);
+                MessageDialogService.ShowError("Msg.FtpTestFailed", "Title.FtpTestFailed", displayName, ex.Message);
             }
             finally
             {
@@ -504,18 +487,6 @@ namespace FolderSync.UI.ViewModels
             return basePathExists
                 ? new FtpConnectionTestResult(FtpConnectionTestResultType.Success, displayName)
                 : new FtpConnectionTestResult(FtpConnectionTestResultType.BasePathUnavailable, displayName);
-        }
-
-        private static void ShowOwnedMessageBox(string message, string title, MessageBoxImage icon)
-        {
-            var owner = Application.Current?.MainWindow;
-            if (owner != null)
-            {
-                MessageBox.Show(owner, message, title, MessageBoxButton.OK, icon);
-                return;
-            }
-
-            MessageBox.Show(message, title, MessageBoxButton.OK, icon);
         }
 
         private SyncTaskDefinition BuildTaskDefinition(DualListFilterConfiguration configuration)
@@ -588,19 +559,19 @@ namespace FolderSync.UI.ViewModels
             var triggerCount = (IsManualTrigger ? 1 : 0) + (IsPeriodicTrigger ? 1 : 0) + (IsCronTrigger ? 1 : 0);
             if (triggerCount != 1)
             {
-                MessageBox.Show("请选择一种且仅一种触发方式：手动、周期或 Cron。", "触发配置无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageDialogService.ShowWarning("Msg.TriggerInvalid", "Title.TriggerInvalid");
                 return false;
             }
 
             if (IsPeriodicTrigger && (!int.TryParse(IntervalValue, out var interval) || interval <= 0))
             {
-                MessageBox.Show("周期触发的间隔数值必须为正整数。", "触发配置无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageDialogService.ShowWarning("Msg.TriggerIntervalInvalid", "Title.TriggerInvalid");
                 return false;
             }
 
             if (IsCronTrigger && !Quartz.CronExpression.IsValidExpression(CronExpression.Trim()))
             {
-                MessageBox.Show("Cron 表达式无效，请检查 6 段格式（秒 分 时 日 月 周）。", "触发配置无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageDialogService.ShowWarning("Msg.TriggerCronInvalid", "Title.TriggerInvalid");
                 return false;
             }
 
@@ -635,7 +606,7 @@ namespace FolderSync.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"{displayName}的 FTP 密码无法解密：{ex.Message}", "FTP 密码读取失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageDialogService.ShowWarning("Msg.FtpPasswordDecryptFailed", "Title.FtpPasswordReadFailed", displayName, ex.Message);
                 return string.Empty;
             }
         }
@@ -644,13 +615,13 @@ namespace FolderSync.UI.ViewModels
         {
             if (!Uri.TryCreate(path.Trim(), UriKind.Absolute, out var uri) || !string.Equals(uri.Scheme, "ftp", StringComparison.OrdinalIgnoreCase))
             {
-                MessageBox.Show($"{displayName}的 FTP 路径无效，请使用 ftp://host[:port]/basePath 格式。", "FTP 配置无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageDialogService.ShowWarning("Msg.FtpPathInvalid", "Title.FtpConfigInvalid", displayName);
                 return false;
             }
 
             if (!string.IsNullOrWhiteSpace(uri.UserInfo))
             {
-                MessageBox.Show($"{displayName}的 FTP 路径中包含用户名或密码。请在认证字段中填写账号密码，不要在 URL 中内嵌凭据。", "FTP 配置无效", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageDialogService.ShowWarning("Msg.FtpPathHasCredentials", "Title.FtpConfigInvalid", displayName);
                 return false;
             }
 
@@ -658,7 +629,7 @@ namespace FolderSync.UI.ViewModels
             {
                 if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
                 {
-                    MessageBox.Show($"{displayName}已选择账号密码登录，请完整填写用户名和密码。", "FTP 配置不完整", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageDialogService.ShowWarning("Msg.FtpCredentialsIncomplete", "Title.FtpConfigIncomplete", displayName);
                     return false;
                 }
             }
