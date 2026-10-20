@@ -1,0 +1,74 @@
+[
+  {
+    "Id": "local-send-once-test",
+    "TaskName": "\u672C\u5730\u5355\u5411\u4E00\u6B21\u6027\u540C\u6B65\u6D4B\u8BD5",
+    "SourceProtocol": "Local/SMB",
+    "DestProtocol": "Local/SMB",
+    "SourcePath": "c:\\Users\\Player_X\\Documents\\Tare\\Folder_sync\\local_test\\send_once_source",
+    "DestPath": "c:\\Users\\Player_X\\Documents\\Tare\\Folder_sync\\local_test\\send_once_dest",
+    "SourceFtpUseAuthentication": false,
+    "SourceFtpUsername": "",
+    "SourceFtpEncryptedPassword": "",
+    "DestFtpUseAuthentication": false,
+    "DestFtpUsername": "",
+    "DestFtpEncryptedPassword": "",
+    "SyncMode": 2,
+    "DiffStrategy": "SizeAndTime",
+    "IsManualTrigger": true,
+    "IsPeriodicTrigger": false,
+    "IsCronTrigger": false,
+    "IntervalValue": "10",
+    "IntervalUnit": "\u5206\u949F",
+    "CronExpression": "0 0 12 * * ?",
+    "FilterConfiguration": {
+      "Whitelist": {
+        "ExtensionFilterText": ".jpg, .jpeg, .heic, .heif, .hec, .dng, .cr3",
+        "MinSizeMB": null,
+        "MaxSizeMB": null,
+        "NewerThanHours": "240",
+        "RegexPattern": null,
+        "HasAnyRule": true
+      },
+      "Blacklist": {
+        "ExtensionFilterText": null,
+        "MinSizeMB": null,
+        "MaxSizeMB": null,
+        "NewerThanHours": null,
+        "RegexPattern": null,
+        "HasAnyRule": false
+      },
+      "IsAllowAll": false
+    },
+    "AnalysisSavedAtUtc": "2026-06-28T14:59:26.9162678Z",
+    "SavedAnalysisItems": [
+      {
+        "RelativePath": "sample.jpg",
+        "IsDirectory": false,
+        "SourceSize": 30,
+        "DestSize": null,
+        "SourceLastWrite": "2026-06-28T14:56:42.736561Z",
+        "DestLastWrite": null,
+        "ActionType": 0,
+        "Direction": 1,
+        "Reason": "\u4EC5\u6E90\u7AEF\u5B58\u5728\uFF0C\u9700\u521B\u5EFA",
+        "IsProtectedByDeliveredState": false,
+        "HasWarning": false,
+        "ShouldSync": true
+      },
+      {
+        "RelativePath": "ignore.txt",
+        "IsDirectory": false,
+        "SourceSize": 20,
+        "DestSize": null,
+        "SourceLastWrite": "2026-06-28T14:56:42.7375658Z",
+        "DestLastWrite": null,
+        "ActionType": null,
+        "Direction": 0,
+        "Reason": "\u88AB\u8FC7\u6EE4\u89C4\u5219\u6392\u9664",
+        "IsProtectedByDeliveredState": false,
+        "HasWarning": false,
+        "ShouldSync": false
+      }
+    ]
+  }
+]
