@@ -67,6 +67,39 @@ namespace FolderSync.Core.Sync
             return result;
         }
 
+        /// <summary>
+        /// 文件/目录类型冲突路径下的任何删除或覆盖动作都必须被阻断，
+        /// 否则会先删除冲突目录内的内容，再留下一个空目录或直接覆盖。
+        /// </summary>
+        public static List<SyncAction> SuppressActionsUnderTypeConflicts(IEnumerable<SyncAction> actions)
+        {
+            var actionList = actions?.ToList() ?? new List<SyncAction>();
+            var conflictPaths = actionList
+                .Where(action => action.ActionType == SyncActionType.Conflict)
+                .Select(action => VfsPath.NormalizeRelativePath(action.SourceItem?.Path ?? action.DestinationItem?.Path))
+                .Where(path => !string.IsNullOrEmpty(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (conflictPaths.Count == 0)
+            {
+                return actionList;
+            }
+
+            return actionList
+                .Where(action =>
+                {
+                    if (action.ActionType == SyncActionType.Conflict)
+                    {
+                        return true;
+                    }
+
+                    var path = VfsPath.NormalizeRelativePath(action.SourceItem?.Path ?? action.DestinationItem?.Path);
+                    return !conflictPaths.Any(conflictPath => VfsPath.IsSameOrUnderPath(path, conflictPath));
+                })
+                .ToList();
+        }
+
         public static List<SyncAction> OrderOneWayActions(IEnumerable<SyncAction> actions)
         {
             return actions

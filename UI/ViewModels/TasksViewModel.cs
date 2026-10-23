@@ -172,13 +172,17 @@ namespace FolderSync.UI.ViewModels
 
                 try
                 {
-                    await SchedulerManager.Instance.RemoveJobAsync(task.Id);
-                    _taskRepository.DeleteById(task.Id);
-                    _definitions.Remove(_definitions.First(t => t.Id == task.Id));
-                    task.PropertyChanged -= TaskItemOnPropertyChanged;
-                    Tasks.Remove(task);
-                    await _deliveryStateStore.InitializeAsync();
-                    await _deliveryStateStore.ResetTaskAsync(task.Id);
+                    // 删除任务前等待当前运行结束，避免状态库/目标仍在被写入时清理任务数据。
+                    using (await TaskExecutionCoordinator.AcquireAsync(task.Id))
+                    {
+                        await SchedulerManager.Instance.RemoveJobAsync(task.Id);
+                        _taskRepository.DeleteById(task.Id);
+                        _definitions.Remove(_definitions.First(t => t.Id == task.Id));
+                        task.PropertyChanged -= TaskItemOnPropertyChanged;
+                        Tasks.Remove(task);
+                        await _deliveryStateStore.InitializeAsync();
+                        await _deliveryStateStore.ResetTaskAsync(task.Id);
+                    }
                     CommandManager.InvalidateRequerySuggested();
                 }
                 catch (Exception ex)
@@ -192,7 +196,20 @@ namespace FolderSync.UI.ViewModels
         {
             Tasks.Clear();
             _definitions.Clear();
-            var all = _taskRepository.LoadAll();
+
+            List<SyncTaskDefinition> all;
+            try
+            {
+                all = _taskRepository.LoadAll();
+            }
+            catch (Exception ex)
+            {
+                // 配置文件损坏/暂时不可读时不能静默当作空列表，否则后续保存会覆盖原数据。
+                AnalysisStatusText = "任务配置加载失败";
+                MessageDialogService.ShowError("Msg.LoadTasksFailed", "Title.LoadTasksFailed", ex.Message);
+                return;
+            }
+
             foreach (var def in all)
             {
                 _definitions.Add(def);
@@ -323,6 +340,7 @@ namespace FolderSync.UI.ViewModels
                 AnalysisProgressMaximum = selected.Count;
                 AnalysisProgressValue = 0;
                 var reportCount = 0;
+                var failedTaskCount = 0;
                 var reportFileNames = new List<string>();
                 for (var i = 0; i < selected.Count; i++)
                 {
@@ -343,13 +361,40 @@ namespace FolderSync.UI.ViewModels
                     var reportPath = SyncReportFileWriter.Write(task.Definition.Id, task.Definition.TaskName, report);
                     reportFileNames.Add(Path.GetFileName(reportPath));
                     reportCount++;
+
+                    if (report.WasCancelled)
+                    {
+                        throw new OperationCanceledException(token);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(report.ErrorMessage) || report.FailedFiles > 0)
+                    {
+                        failedTaskCount++;
+                    }
+
                     AnalysisProgressValue = i + 1;
                 }
 
-                AnalysisStatusText = $"批量执行完成，共处理 {reportCount} 个任务。";
+                AnalysisStatusText = failedTaskCount > 0
+                    ? $"批量执行结束，成功 {reportCount - failedTaskCount} 个任务，失败 {failedTaskCount} 个任务。"
+                    : $"批量执行完成，共处理 {reportCount} 个任务。";
+
                 if (!_dialogsSuppressed)
                 {
-                    MessageDialogService.ShowInfo("Msg.ExecuteComplete", "Title.ExecuteComplete", reportCount, BuildReportPreview(reportFileNames), BuildReportMoreSuffix(reportFileNames));
+                    if (failedTaskCount > 0)
+                    {
+                        MessageDialogService.ShowWarning(
+                            "Msg.ExecuteCompleteWithFailures",
+                            "Title.ExecuteComplete",
+                            reportCount - failedTaskCount,
+                            failedTaskCount,
+                            BuildReportPreview(reportFileNames),
+                            BuildReportMoreSuffix(reportFileNames));
+                    }
+                    else
+                    {
+                        MessageDialogService.ShowInfo("Msg.ExecuteComplete", "Title.ExecuteComplete", reportCount, BuildReportPreview(reportFileNames), BuildReportMoreSuffix(reportFileNames));
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -392,6 +437,7 @@ namespace FolderSync.UI.ViewModels
                 IsAnalysisProgressVisible = true;
                 ResetAnalysisProgressDisplay();
                 var reportFileNames = new List<string>();
+                var failedTaskCount = 0;
 
                 for (var i = 0; i < selected.Count; i++)
                 {
@@ -417,13 +463,39 @@ namespace FolderSync.UI.ViewModels
                     var report = await ExecuteSelectedItemsAsync(task.Definition, analysisItems, token);
                     var reportPath = SyncReportFileWriter.Write(task.Definition.Id, task.Definition.TaskName, report);
                     reportFileNames.Add(Path.GetFileName(reportPath));
+
+                    if (report.WasCancelled)
+                    {
+                        throw new OperationCanceledException(token);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(report.ErrorMessage) || report.FailedFiles > 0)
+                    {
+                        failedTaskCount++;
+                    }
+
                     AnalysisProgressValue = i + 1;
                 }
 
-                AnalysisStatusText = $"同步完成，共处理 {selected.Count} 个任务。";
+                AnalysisStatusText = failedTaskCount > 0
+                    ? $"同步结束，成功 {selected.Count - failedTaskCount} 个任务，失败 {failedTaskCount} 个任务。"
+                    : $"同步完成，共处理 {selected.Count} 个任务。";
                 if (!_dialogsSuppressed)
                 {
-                    MessageDialogService.ShowInfo("Msg.SyncComplete", "Title.SyncComplete", selected.Count, BuildReportPreview(reportFileNames), BuildReportMoreSuffix(reportFileNames));
+                    if (failedTaskCount > 0)
+                    {
+                        MessageDialogService.ShowWarning(
+                            "Msg.SyncCompleteWithFailures",
+                            "Title.SyncComplete",
+                            selected.Count - failedTaskCount,
+                            failedTaskCount,
+                            BuildReportPreview(reportFileNames),
+                            BuildReportMoreSuffix(reportFileNames));
+                    }
+                    else
+                    {
+                        MessageDialogService.ShowInfo("Msg.SyncComplete", "Title.SyncComplete", selected.Count, BuildReportPreview(reportFileNames), BuildReportMoreSuffix(reportFileNames));
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -618,7 +690,7 @@ namespace FolderSync.UI.ViewModels
                 AnalysisStatusText = $"正在分析：{definition.TaskName}";
 
                 var analysis = await AnalyzeTaskAsync(definition, token);
-                if (analysis.Count == 0)
+                if (!analysis.Any(i => i.ShouldSync))
                 {
                     MessageDialogService.ShowInfo("Msg.NothingToSync", "Title.NothingToSync");
                     AnalysisStatusText = "分析完成，无待同步内容。";
@@ -637,11 +709,31 @@ namespace FolderSync.UI.ViewModels
                 var report = await ExecuteSelectedItemsAsync(definition, analysis, token);
                 var reportPath = SyncReportFileWriter.Write(definition.Id, definition.TaskName, report);
                 var reportFileName = Path.GetFileName(reportPath);
+                var succeeded = report.CreatedFiles + report.UpdatedFiles + report.DeletedFiles;
 
-                AnalysisStatusText = $"执行完成：{definition.TaskName}";
-                if (!_dialogsSuppressed)
+                if (report.WasCancelled)
                 {
-                    MessageDialogService.ShowInfo("Msg.RunNowComplete", "Title.ExecuteComplete", definition.TaskName, reportFileName);
+                    AnalysisStatusText = $"执行已停止：{definition.TaskName}";
+                    if (!_dialogsSuppressed)
+                    {
+                        MessageDialogService.ShowInfo("Msg.RunNowStopped", "Title.Stopped", definition.TaskName, succeeded, report.FailedFiles, reportFileName);
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(report.ErrorMessage))
+                {
+                    AnalysisStatusText = $"执行失败：{definition.TaskName}";
+                    if (!_dialogsSuppressed)
+                    {
+                        MessageDialogService.ShowError("Msg.RunNowFailedWithReport", "Title.ExecuteFailed", definition.TaskName, report.ErrorMessage, succeeded, report.FailedFiles, reportFileName);
+                    }
+                }
+                else
+                {
+                    AnalysisStatusText = $"执行完成：{definition.TaskName}";
+                    if (!_dialogsSuppressed)
+                    {
+                        MessageDialogService.ShowInfo("Msg.RunNowComplete", "Title.ExecuteComplete", definition.TaskName, succeeded, report.FailedFiles, reportFileName);
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -692,11 +784,14 @@ namespace FolderSync.UI.ViewModels
 
             try
             {
-                await _deliveryStateStore.InitializeAsync();
-                await _deliveryStateStore.ResetTaskAsync(definition.Id);
-                definition.SavedAnalysisItems.Clear();
-                definition.AnalysisSavedAtUtc = null;
-                _taskRepository.Upsert(definition);
+                using (await TaskExecutionCoordinator.AcquireAsync(definition.Id))
+                {
+                    await _deliveryStateStore.InitializeAsync();
+                    await _deliveryStateStore.ResetTaskAsync(definition.Id);
+                    definition.SavedAnalysisItems.Clear();
+                    definition.AnalysisSavedAtUtc = null;
+                    _taskRepository.Upsert(definition);
+                }
                 taskVm.IsAnalysisCompleted = false;
                 MessageDialogService.ShowInfo("Msg.ResetDone", "Title.ResetDone");
             }

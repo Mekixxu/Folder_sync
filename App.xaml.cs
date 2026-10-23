@@ -264,8 +264,7 @@ namespace FolderSync
                 try
                 {
                     var cron = SyncTaskFactory.ResolveCronExpression(task);
-                    var executor = SyncTaskFactory.CreateExecutor(task);
-                    await SchedulerManager.Instance.AddOrUpdateJobAsync(task.Id, task.TaskName, cron, executor);
+                    await SchedulerManager.Instance.AddOrUpdateJobAsync(task.Id, task.TaskName, cron);
                     Log.Information("Restored scheduled job {TaskName} ({TaskId}) with cron {Cron}", task.TaskName, task.Id, cron);
                 }
                 catch (Exception ex)

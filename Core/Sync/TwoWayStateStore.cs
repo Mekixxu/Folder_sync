@@ -90,6 +90,51 @@ namespace FolderSync.Core.Sync
             return result;
         }
 
+        /// <summary>
+        /// 仅更新指定路径的基线。A/B 为 null 表示该侧当前不存在。
+        /// 未出现在 changes 中的路径保留旧基线，避免把失败、未选或扫描不完整的路径误认为已同步。
+        /// </summary>
+        public async Task ApplyPathChangesAsync(
+            string taskId,
+            IReadOnlyCollection<TwoWayBaselineChange> changes,
+            CancellationToken cancellationToken = default)
+        {
+            if (changes.Count == 0)
+            {
+                return;
+            }
+
+            await using var conn = new SqliteConnection(_connectionString);
+            await conn.OpenAsync(cancellationToken);
+            await using var tx = (SqliteTransaction)await conn.BeginTransactionAsync(cancellationToken);
+
+            var deleteCmd = conn.CreateCommand();
+            deleteCmd.Transaction = tx;
+            deleteCmd.CommandText = "DELETE FROM sync_state WHERE task_id = $taskId AND relative_path = $path;";
+            var deleteTaskId = deleteCmd.Parameters.Add("$taskId", SqliteType.Text);
+            var deletePath = deleteCmd.Parameters.Add("$path", SqliteType.Text);
+
+            foreach (var change in changes)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                deleteTaskId.Value = taskId;
+                deletePath.Value = change.Path;
+                await deleteCmd.ExecuteNonQueryAsync(cancellationToken);
+
+                if (change.A != null)
+                {
+                    await InsertSnapshotAsync(conn, tx, taskId, "A", change.Path, change.A, cancellationToken);
+                }
+
+                if (change.B != null)
+                {
+                    await InsertSnapshotAsync(conn, tx, taskId, "B", change.Path, change.B, cancellationToken);
+                }
+            }
+
+            await tx.CommitAsync(cancellationToken);
+        }
+
         public async Task SaveAsync(
             string taskId,
             IReadOnlyDictionary<string, StateSnapshot> sourceSnapshots,
@@ -147,5 +192,12 @@ namespace FolderSync.Core.Sync
             cmd.Parameters.AddWithValue("$hash", snap.Hash ?? (object)DBNull.Value);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
+    }
+
+    public sealed class TwoWayBaselineChange
+    {
+        public string Path { get; init; } = string.Empty;
+        public StateSnapshot? A { get; init; }
+        public StateSnapshot? B { get; init; }
     }
 }

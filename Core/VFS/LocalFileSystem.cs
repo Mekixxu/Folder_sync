@@ -14,7 +14,11 @@ namespace FolderSync.Core.VFS
     public class LocalFileSystem : IFileSystem
     {
         private readonly string _basePath;
+        private static readonly IReadOnlyList<string> EmptyScanFailures = Array.Empty<string>();
+
         public string RootIdentifier => $"local:{_basePath.ToLowerInvariant()}";
+        public IReadOnlyList<string> LastScanFailures => EmptyScanFailures;
+        public bool LastScanComplete => true;
 
         public LocalFileSystem(string basePath)
         {
@@ -137,15 +141,81 @@ namespace FolderSync.Core.VFS
 
         public Task<Stream> OpenWriteAsync(string path, CancellationToken cancellationToken = default)
         {
+            return OpenWriteInternalAsync(path, FileMode.Create);
+        }
+
+        public Task<Stream> OpenWriteToTempAsync(string tempPath, CancellationToken cancellationToken = default)
+        {
+            // CreateNew 确保不会覆盖同目录中已存在的临时文件。
+            return OpenWriteInternalAsync(tempPath, FileMode.CreateNew);
+        }
+
+        private Task<Stream> OpenWriteInternalAsync(string path, FileMode mode)
+        {
             var fullPath = GetFullPath(path);
             var dir = Path.GetDirectoryName(fullPath);
-            
+
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             {
                 Directory.CreateDirectory(dir);
             }
-            
-            return Task.FromResult<Stream>(new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None));
+
+            return Task.FromResult<Stream>(new FileStream(fullPath, mode, FileAccess.Write, FileShare.None));
+        }
+
+        public Task CommitTempFileAsync(string tempPath, string targetPath, CancellationToken cancellationToken = default)
+        {
+            var tempFullPath = GetFullPath(tempPath);
+            var targetFullPath = GetFullPath(targetPath);
+            var dir = Path.GetDirectoryName(targetFullPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            if (!File.Exists(tempFullPath))
+            {
+                throw new FileNotFoundException($"Temporary file not found: {tempFullPath}", tempFullPath);
+            }
+
+            if (File.Exists(targetFullPath))
+            {
+                // 先把旧目标保留在 Replace 的原子替换点之前；失败时旧目标仍然存在。
+                try
+                {
+                    File.Replace(tempFullPath, targetFullPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+                }
+                catch (PlatformNotSupportedException)
+                {
+                    File.Move(tempFullPath, targetFullPath, overwrite: true);
+                }
+            }
+            else
+            {
+                File.Move(tempFullPath, targetFullPath);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task CleanupTempFileAsync(string tempPath, CancellationToken cancellationToken = default)
+        {
+            var fullPath = GetFullPath(tempPath);
+            if (File.Exists(fullPath))
+            {
+                File.Delete(fullPath);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task SetLastWriteTimeAsync(string path, DateTime lastWriteTimeUtc, CancellationToken cancellationToken = default)
+        {
+            var fullPath = GetFullPath(path);
+            File.SetLastWriteTimeUtc(fullPath, lastWriteTimeUtc.Kind == DateTimeKind.Utc
+                ? lastWriteTimeUtc
+                : lastWriteTimeUtc.ToUniversalTime());
+            return Task.CompletedTask;
         }
 
         public Task DeleteFileAsync(string path, CancellationToken cancellationToken = default)
@@ -168,14 +238,22 @@ namespace FolderSync.Core.VFS
             return Task.CompletedTask;
         }
 
-        public Task DeleteDirectoryAsync(string path, CancellationToken cancellationToken = default)
+        public Task<bool> DeleteDirectoryIfEmptyAsync(string path, CancellationToken cancellationToken = default)
         {
             var fullPath = GetFullPath(path);
-            if (Directory.Exists(fullPath))
+            if (!Directory.Exists(fullPath))
             {
-                Directory.Delete(fullPath, true); // true = recursive delete
+                return Task.FromResult(true);
             }
-            return Task.CompletedTask;
+
+            if (Directory.EnumerateFileSystemEntries(fullPath).Any())
+            {
+                // 目录中仍有未授权/未选/失败项时，绝不递归删除。
+                return Task.FromResult(false);
+            }
+
+            Directory.Delete(fullPath, recursive: false);
+            return Task.FromResult(true);
         }
 
         public Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default)

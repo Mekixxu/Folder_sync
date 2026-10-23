@@ -14,7 +14,11 @@ namespace FolderSync.Core.Sync
         public TimeSpan Duration => EndTime - StartTime;
 
         public SyncMode SyncMode { get; set; }
-        
+        public string SourceRoot { get; set; } = string.Empty;
+        public string DestRoot { get; set; } = string.Empty;
+        public bool WasCancelled { get; set; }
+        public bool ScanIncomplete { get; set; }
+
         public int TotalActions { get; set; }
         public int CreatedFiles { get; set; }
         public int UpdatedFiles { get; set; }
@@ -26,7 +30,7 @@ namespace FolderSync.Core.Sync
         public List<SyncSuccessDetail> SuccessDetails { get; } = new();
         public List<SyncErrorDetail> ErrorDetails { get; } = new();
         public List<SyncWarningDetail> WarningDetails { get; } = new();
-        public bool IsSuccess => string.IsNullOrEmpty(ErrorMessage) && FailedFiles == 0;
+        public bool IsSuccess => string.IsNullOrEmpty(ErrorMessage) && FailedFiles == 0 && !ScanIncomplete && !WasCancelled;
 
         public override string ToString()
         {

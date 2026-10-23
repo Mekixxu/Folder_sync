@@ -16,8 +16,6 @@ namespace FolderSync.Core.Reporting
             var logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log");
             Directory.CreateDirectory(logDir);
 
-            var path = BuildReportPath(logDir, report);
-
             var sb = new StringBuilder();
             sb.AppendLine($"TaskName: {taskName}");
             sb.AppendLine($"TaskId: {taskId}");
@@ -25,7 +23,16 @@ namespace FolderSync.Core.Reporting
             sb.AppendLine($"End(Local): {report.EndTime.ToLocalTime():yyyy-MM-dd HH:mm:ss.fff}");
             sb.AppendLine($"Duration: {report.Duration.TotalSeconds:F3}s");
             sb.AppendLine($"SyncMode: {report.SyncMode}");
+            if (!string.IsNullOrWhiteSpace(report.SourceRoot))
+            {
+                sb.AppendLine($"SourceRoot: {report.SourceRoot}");
+            }
+            if (!string.IsNullOrWhiteSpace(report.DestRoot))
+            {
+                sb.AppendLine($"DestRoot: {report.DestRoot}");
+            }
             sb.AppendLine($"Success: {report.IsSuccess}");
+            sb.AppendLine($"Outcome: cancelled={report.WasCancelled}, scanIncomplete={report.ScanIncomplete}, failed={report.FailedFiles}");
             sb.AppendLine($"Actions: total={report.TotalActions}, create={report.CreatedFiles}, update={report.UpdatedFiles}, delete={report.DeletedFiles}, skippedDelivered={report.SkippedAlreadyDelivered}, failed={report.FailedFiles}");
             if (!string.IsNullOrWhiteSpace(report.ErrorMessage))
             {
@@ -86,8 +93,7 @@ namespace FolderSync.Core.Reporting
                 }
             }
 
-            File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
-            return path;
+            return WriteAtomically(logDir, report, sb.ToString());
         }
 
         private static string FormatSizeBytes(long? sizeBytes)
@@ -95,7 +101,7 @@ namespace FolderSync.Core.Reporting
             return sizeBytes?.ToString() ?? "(unknown)";
         }
 
-        private static string BuildReportPath(string logDir, SyncReport report)
+        private static string WriteAtomically(string logDir, SyncReport report, string content)
         {
             var transferredBytes = report.SuccessDetails
                 .Where(item => !item.IsDirectory && item.ActionType is FolderSync.Core.Diff.SyncActionType.Create or FolderSync.Core.Diff.SyncActionType.Update)
@@ -106,12 +112,18 @@ namespace FolderSync.Core.Reporting
             {
                 var fileName = $"{timestamp:yyyyMMdd_HHmmss_fffffff}_{transferredBytes}B.txt";
                 var path = Path.Combine(logDir, fileName);
-                if (!File.Exists(path))
+                try
                 {
+                    // CreateNew 原子抢占文件名，绝不覆盖另一份报告。
+                    using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                    using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+                    writer.Write(content);
                     return path;
                 }
-
-                timestamp = timestamp.AddTicks(1);
+                catch (IOException) when (File.Exists(path))
+                {
+                    timestamp = timestamp.AddTicks(1);
+                }
             }
         }
     }

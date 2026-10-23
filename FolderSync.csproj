@@ -9,13 +9,22 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**;publish\**</DefaultItemExcludes>
     
     <!-- 应用版本信息 -->
-    <Version>0.0.54</Version>
-    <AssemblyVersion>0.0.54.0</AssemblyVersion>
-    <FileVersion>0.0.54.0</FileVersion>
+    <Version>0.0.55</Version>
+    <AssemblyVersion>0.0.55.0</AssemblyVersion>
+    <FileVersion>0.0.55.0</FileVersion>
     <Title>FolderSync Pro</Title>
     <Product>FolderSync Pro</Product>
     <Description>Advanced Folder Synchronization Tool</Description>
   </PropertyGroup>
+
+  <!-- 测试工程独立编译，不能由主工程递归纳入，否则会因缺少 xUnit 引用导致构建失败。 -->
+  <ItemGroup>
+    <Compile Remove="FolderSync.Core.Tests\**\*.cs" />
+    <Page Remove="FolderSync.Core.Tests\**\*.xaml" />
+    <ApplicationDefinition Remove="FolderSync.Core.Tests\**\*.xaml" />
+    <EmbeddedResource Remove="FolderSync.Core.Tests\**" />
+    <None Remove="FolderSync.Core.Tests\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />

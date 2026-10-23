@@ -57,7 +57,16 @@
                     </Style>
                 </DataGrid.Style>
                 <DataGrid.Columns>
-                    <DataGridCheckBoxColumn Header="{DynamicResource Analysis.Sync}" Binding="{Binding ShouldSync, Mode=TwoWay}" Width="80"/>
+                    <DataGridTemplateColumn Header="{DynamicResource Analysis.Sync}" Width="80">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding ShouldSync, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          IsEnabled="{Binding IsSelectable}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="{DynamicResource Analysis.Path}" Binding="{Binding RelativePath}" Width="3*"/>
                     <DataGridTextColumn Header="{DynamicResource Analysis.Direction}" Binding="{Binding DirectionLabel}" Width="90"/>
                     <DataGridTextColumn Header="{DynamicResource Analysis.Reason}" Binding="{Binding Reason}" Width="2*"/>

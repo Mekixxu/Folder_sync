@@ -28,6 +28,12 @@ namespace FolderSync.Core.Sync
 
         public bool ShouldSync { get; set; }
 
+        public bool IsSelectable =>
+            ActionType is not null
+            && ActionType != SyncActionType.Conflict
+            && Direction != AnalysisDirection.None
+            && !IsProtectedByDeliveredState;
+
         public string ActionLabel => ShouldSync ? "同步" : "不同步";
         public string DirectionLabel => Direction switch
         {

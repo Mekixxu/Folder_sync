@@ -311,17 +311,21 @@ namespace FolderSync.UI.ViewModels
             {
                 var task = BuildTaskDefinition(configuration);
                 PathSafetyValidator.EnsureSourceDestDoNotOverlap(task);
-                _taskRepository.Upsert(task);
 
-                if (task.IsManualTrigger)
+                // 修改任务时等待正在运行的同一任务结束，避免配置/状态在传输过程中被切换。
+                using (await TaskExecutionCoordinator.AcquireAsync(task.Id))
                 {
-                    await SchedulerManager.Instance.RemoveJobAsync(task.Id);
-                }
-                else
-                {
-                    var cron = SyncTaskFactory.ResolveCronExpression(task);
-                    var executor = SyncTaskFactory.CreateExecutor(task);
-                    await SchedulerManager.Instance.AddOrUpdateJobAsync(task.Id, task.TaskName, cron, executor);
+                    _taskRepository.Upsert(task);
+
+                    if (task.IsManualTrigger)
+                    {
+                        await SchedulerManager.Instance.RemoveJobAsync(task.Id);
+                    }
+                    else
+                    {
+                        var cron = SyncTaskFactory.ResolveCronExpression(task);
+                        await SchedulerManager.Instance.AddOrUpdateJobAsync(task.Id, task.TaskName, cron);
+                    }
                 }
 
                 MessageDialogService.ShowInfo("Msg.TaskSaved", "Title.Saved");

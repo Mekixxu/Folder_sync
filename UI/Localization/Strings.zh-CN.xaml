@@ -97,6 +97,7 @@
     <sys:String x:Key="Title.FtpPasswordReadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP 密码读取失败</sys:String>
     <sys:String x:Key="Title.FtpConfigInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP 配置无效</sys:String>
     <sys:String x:Key="Title.FtpConfigIncomplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">FTP 配置不完整</sys:String>
+    <sys:String x:Key="Title.LoadTasksFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">加载任务失败</sys:String>
 
     <!-- 对话框消息 -->
     <sys:String x:Key="Msg.AnalysisFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">分析失败：{0}</sys:String>
@@ -108,8 +109,8 @@
     <sys:String x:Key="Msg.BatchExecuteFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">批量执行失败：{0}</sys:String>
     <sys:String x:Key="Msg.RunNowFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">立即运行失败：{0}</sys:String>
     <sys:String x:Key="Msg.AnalysisStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">分析已停止。</sys:String>
-    <sys:String x:Key="Msg.ExecuteStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">执行已停止。若停止时正在传输文件，未完成的目标文件已删除。</sys:String>
-    <sys:String x:Key="Msg.SyncStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">同步已停止。若停止时正在传输文件，未完成的目标文件已删除。</sys:String>
+    <sys:String x:Key="Msg.ExecuteStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">执行已停止。已完成的文件会保留，传输中的临时文件已清理，原有目标文件未被破坏。</sys:String>
+    <sys:String x:Key="Msg.SyncStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">同步已停止。已完成的文件会保留，传输中的临时文件已清理，原有目标文件未被破坏。</sys:String>
     <sys:String x:Key="Msg.BatchAnalysisFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">批量分析失败：{0}</sys:String>
     <sys:String x:Key="Msg.BatchSyncFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">批量同步失败：{0}</sys:String>
     <sys:String x:Key="Msg.TaskNotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">未找到任务定义。</sys:String>
@@ -135,7 +136,14 @@
     <sys:String x:Key="Msg.FtpCredentialsIncomplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0}已选择账号密码登录，请完整填写用户名和密码。</sys:String>
     <sys:String x:Key="Msg.ExecuteComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">批量执行完成，共处理 {0} 个任务。&#10;&#10;生成的日志/报告文件：&#10;{1}{2}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
     <sys:String x:Key="Msg.SyncComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">同步完成，共处理 {0} 个任务。&#10;&#10;生成的日志/报告文件：&#10;{1}{2}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
-    <sys:String x:Key="Msg.ExecuteSelectedComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">已执行 {0} 项。&#10;&#10;生成的日志/报告文件：&#10;- {1}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
-    <sys:String x:Key="Msg.RunNowComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">任务“{0}”已立即执行完成。&#10;&#10;生成的日志/报告文件：&#10;- {1}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
+    <sys:String x:Key="Msg.ExecuteSelectedComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">执行完成：成功 {0} 项，失败 {1} 项，跳过/告警 {2} 项。&#10;&#10;生成的日志/报告文件：&#10;- {3}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
+    <sys:String x:Key="Msg.ExecuteSelectedStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">执行已停止：成功 {0} 项，失败 {1} 项。已经提交的完整文件会保留，传输中的临时文件已清理。&#10;&#10;报告文件：&#10;- {2}</sys:String>
+    <sys:String x:Key="Msg.ExecuteSelectedFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">执行未完成：{0}&#10;&#10;成功 {1} 项，失败 {2} 项。&#10;&#10;报告文件：&#10;- {3}</sys:String>
+    <sys:String x:Key="Msg.RunNowComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">任务“{0}”已立即执行完成：成功 {1} 项，失败 {2} 项。&#10;&#10;生成的日志/报告文件：&#10;- {3}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
+    <sys:String x:Key="Msg.RunNowStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">任务“{0}”执行已停止：成功 {1} 项，失败 {2} 项。&#10;&#10;报告文件：&#10;- {3}</sys:String>
+    <sys:String x:Key="Msg.RunNowFailedWithReport" xmlns:sys="clr-namespace:System;assembly=mscorlib">任务“{0}”执行失败：{1}&#10;&#10;成功 {2} 项，失败 {3} 项。&#10;&#10;报告文件：&#10;- {4}</sys:String>
+    <sys:String x:Key="Msg.ExecuteCompleteWithFailures" xmlns:sys="clr-namespace:System;assembly=mscorlib">批量执行结束：成功 {0} 个任务，失败 {1} 个任务。&#10;&#10;生成的日志/报告文件：&#10;{2}{3}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
+    <sys:String x:Key="Msg.SyncCompleteWithFailures" xmlns:sys="clr-namespace:System;assembly=mscorlib">批量同步结束：成功 {0} 个任务，失败 {1} 个任务。&#10;&#10;生成的日志/报告文件：&#10;{2}{3}&#10;&#10;请到程序目录下的 log 文件夹中自行打开。</sys:String>
+    <sys:String x:Key="Msg.LoadTasksFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">加载任务配置失败：{0}</sys:String>
     <sys:String x:Key="Msg.ReportMoreFiles" xmlns:sys="clr-namespace:System;assembly=mscorlib">&#10;... 其余 {0} 个文件也已写入 log 文件夹。</sys:String>
 </ResourceDictionary>

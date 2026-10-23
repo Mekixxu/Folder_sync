@@ -97,6 +97,7 @@
     <sys:String x:Key="Title.FtpPasswordReadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed to Read FTP Password</sys:String>
     <sys:String x:Key="Title.FtpConfigInvalid" xmlns:sys="clr-namespace:System;assembly=mscorlib">Invalid FTP Configuration</sys:String>
     <sys:String x:Key="Title.FtpConfigIncomplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Incomplete FTP Configuration</sys:String>
+    <sys:String x:Key="Title.LoadTasksFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed to Load Tasks</sys:String>
 
     <!-- Dialog messages -->
     <sys:String x:Key="Msg.AnalysisFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Analysis failed: {0}</sys:String>
@@ -108,8 +109,8 @@
     <sys:String x:Key="Msg.BatchExecuteFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Bulk execution failed: {0}</sys:String>
     <sys:String x:Key="Msg.RunNowFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Run now failed: {0}</sys:String>
     <sys:String x:Key="Msg.AnalysisStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Analysis stopped.</sys:String>
-    <sys:String x:Key="Msg.ExecuteStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execution stopped. If files were being transferred, any incomplete destination files have been removed.</sys:String>
-    <sys:String x:Key="Msg.SyncStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync stopped. If files were being transferred, any incomplete destination files have been removed.</sys:String>
+    <sys:String x:Key="Msg.ExecuteStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execution stopped. Fully committed files are kept, in-flight temporary files were cleaned up, and existing destination files remain intact.</sys:String>
+    <sys:String x:Key="Msg.SyncStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync stopped. Fully committed files are kept, in-flight temporary files were cleaned up, and existing destination files remain intact.</sys:String>
     <sys:String x:Key="Msg.BatchAnalysisFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Bulk analysis failed: {0}</sys:String>
     <sys:String x:Key="Msg.BatchSyncFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Bulk sync failed: {0}</sys:String>
     <sys:String x:Key="Msg.TaskNotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">Task definition not found.</sys:String>
@@ -135,7 +136,14 @@
     <sys:String x:Key="Msg.FtpCredentialsIncomplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0} uses account/password login. Please fill in both username and password.</sys:String>
     <sys:String x:Key="Msg.ExecuteComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Bulk execution complete, {0} task(s) processed.&#10;&#10;Generated log/report files:&#10;{1}{2}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
     <sys:String x:Key="Msg.SyncComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Sync complete, {0} task(s) processed.&#10;&#10;Generated log/report files:&#10;{1}{2}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
-    <sys:String x:Key="Msg.ExecuteSelectedComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Executed {0} item(s).&#10;&#10;Generated log/report files:&#10;- {1}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
-    <sys:String x:Key="Msg.RunNowComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Task "{0}" executed immediately.&#10;&#10;Generated log/report files:&#10;- {1}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
+    <sys:String x:Key="Msg.ExecuteSelectedComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execution complete: {0} succeeded, {1} failed, {2} skipped/warned.&#10;&#10;Generated log/report files:&#10;- {3}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
+    <sys:String x:Key="Msg.ExecuteSelectedStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execution stopped: {0} succeeded, {1} failed. Fully committed files are kept; in-flight temporary files were cleaned up.&#10;&#10;Report file:&#10;- {2}</sys:String>
+    <sys:String x:Key="Msg.ExecuteSelectedFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Execution did not complete: {0}&#10;&#10;{1} succeeded, {2} failed.&#10;&#10;Report file:&#10;- {3}</sys:String>
+    <sys:String x:Key="Msg.RunNowComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Task "{0}" executed immediately: {1} succeeded, {2} failed.&#10;&#10;Generated log/report files:&#10;- {3}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
+    <sys:String x:Key="Msg.RunNowStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">Task "{0}" stopped: {1} succeeded, {2} failed.&#10;&#10;Report file:&#10;- {3}</sys:String>
+    <sys:String x:Key="Msg.RunNowFailedWithReport" xmlns:sys="clr-namespace:System;assembly=mscorlib">Task "{0}" failed: {1}&#10;&#10;{2} succeeded, {3} failed.&#10;&#10;Report file:&#10;- {4}</sys:String>
+    <sys:String x:Key="Msg.ExecuteCompleteWithFailures" xmlns:sys="clr-namespace:System;assembly=mscorlib">Bulk execution finished: {0} task(s) succeeded, {1} failed.&#10;&#10;Generated log/report files:&#10;{2}{3}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
+    <sys:String x:Key="Msg.SyncCompleteWithFailures" xmlns:sys="clr-namespace:System;assembly=mscorlib">Bulk sync finished: {0} task(s) succeeded, {1} failed.&#10;&#10;Generated log/report files:&#10;{2}{3}&#10;&#10;Open the log folder under the program directory yourself.</sys:String>
+    <sys:String x:Key="Msg.LoadTasksFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed to load task definitions: {0}</sys:String>
     <sys:String x:Key="Msg.ReportMoreFiles" xmlns:sys="clr-namespace:System;assembly=mscorlib">&#10;... {0} more file(s) were also written to the log folder.</sys:String>
 </ResourceDictionary>

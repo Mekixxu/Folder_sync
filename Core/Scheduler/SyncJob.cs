@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using FolderSync.Core.Config;
 using FolderSync.Core.Reporting;
 using FolderSync.Core.Sync;
 using Quartz;
@@ -13,7 +15,6 @@ namespace FolderSync.Core.Scheduler
     [DisallowConcurrentExecution] // 防止同一个任务的下一次触发与上一次执行重叠
     public class SyncJob : IJob
     {
-        public const string JobDataKey_SyncExecutor = "SyncExecutor";
         public const string JobDataKey_TaskId = "TaskId";
         public const string JobDataKey_TaskName = "TaskName";
 
@@ -23,19 +24,21 @@ namespace FolderSync.Core.Scheduler
             
             var taskId = dataMap.GetString(JobDataKey_TaskId) ?? "Unknown";
             var taskName = dataMap.GetString(JobDataKey_TaskName) ?? "Unnamed Task";
-            var executor = dataMap[JobDataKey_SyncExecutor] as SyncExecutor;
-
-            if (executor == null)
-            {
-                Log.Error("SyncJob failed to execute. SyncExecutor is missing in JobDataMap for Task: {TaskName} ({TaskId})", taskName, taskId);
-                return;
-            }
 
             Log.Information("Starting scheduled sync job: {TaskName} ({TaskId})", taskName, taskId);
 
             try
             {
-                // 执行同步操作
+                // 每次执行创建并独占执行器，避免任务编辑/删除时 Dispose 正在传输的 FTP 连接。
+                var task = new TaskRepository().LoadAll()
+                    .FirstOrDefault(t => string.Equals(t.Id, taskId, StringComparison.OrdinalIgnoreCase));
+                if (task == null)
+                {
+                    Log.Warning("Scheduled sync job skipped because task no longer exists: {TaskName} ({TaskId})", taskName, taskId);
+                    return;
+                }
+
+                using var executor = SyncTaskFactory.CreateExecutor(task);
                 var report = await executor.ExecuteAsync(context.CancellationToken);
                 var reportPath = SyncReportFileWriter.Write(taskId, taskName, report);
                 

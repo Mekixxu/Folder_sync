@@ -270,76 +270,121 @@ namespace FolderSync.Core.Sync
             return Convert.ToHexString(hasher.GetCurrentHash());
         }
 
-        public static async Task<string?> CopyFileAndComputeHashAsync(
+        public static Task<CopyFileResult> CopyFileAndComputeHashAsync(
             IFileSystem fromFs,
             IFileSystem toFs,
             string path,
+            FileItem? sourceItem = null,
             CancellationToken cancellationToken = default)
         {
+            return CopyFileCoreAsync(fromFs, toFs, path, sourceItem, computeHash: true, cancellationToken);
+        }
+
+        public static Task<CopyFileResult> CopyFileAsync(
+            IFileSystem fromFs,
+            IFileSystem toFs,
+            string path,
+            FileItem? sourceItem = null,
+            CancellationToken cancellationToken = default)
+        {
+            return CopyFileCoreAsync(fromFs, toFs, path, sourceItem, computeHash: false, cancellationToken);
+        }
+
+        private static async Task<CopyFileResult> CopyFileCoreAsync(
+            IFileSystem fromFs,
+            IFileSystem toFs,
+            string path,
+            FileItem? sourceItem,
+            bool computeHash,
+            CancellationToken cancellationToken)
+        {
+            var tempPath = VfsPath.CreateSiblingTemporaryPath(path, "tmp");
+            Stream? readStream = null;
+            Stream? writeStream = null;
+
             try
             {
-                using var readStream = await fromFs.OpenReadForCopyAsync(path, cancellationToken);
-                using var writeStream = await toFs.OpenWriteAsync(path, cancellationToken);
+                // 先打开源：源不可读时目标仍然完全未被触碰。
+                readStream = await fromFs.OpenReadForCopyAsync(path, cancellationToken);
+                writeStream = await toFs.OpenWriteToTempAsync(tempPath, cancellationToken);
 
-                var hasher = new XxHash64();
+                var hasher = computeHash ? new XxHash64() : null;
                 var buffer = new byte[81920];
+                long bytesCopied = 0;
                 int read;
                 while ((read = await readStream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
                 {
-                    hasher.Append(buffer.AsSpan(0, read));
+                    hasher?.Append(buffer.AsSpan(0, read));
                     await writeStream.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                    bytesCopied += read;
                 }
 
                 await writeStream.FlushAsync(cancellationToken);
-                return Convert.ToHexString(hasher.GetCurrentHash());
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                await TryDeleteIncompleteTargetAsync(toFs, path);
-                throw;
+
+                // 必须在提交前关闭上传流；FTP 的最终响应/关闭失败也不能记成功。
+                await writeStream.DisposeAsync();
+                writeStream = null;
+                await readStream.DisposeAsync();
+                readStream = null;
+
+                await toFs.CommitTempFileAsync(tempPath, path, cancellationToken);
+
+                if (sourceItem != null && !sourceItem.IsDirectory)
+                {
+                    await TryPreserveLastWriteTimeAsync(toFs, path, sourceItem.LastWriteTime);
+                }
+
+                return new CopyFileResult(
+                    bytesCopied,
+                    hasher == null ? null : Convert.ToHexString(hasher.GetCurrentHash()));
             }
             catch (OperationCanceledException)
             {
-                await TryDeleteIncompleteTargetAsync(toFs, path);
+                await TryCleanupTempAsync(toFs, tempPath);
                 throw;
+            }
+            catch (Exception)
+            {
+                await TryCleanupTempAsync(toFs, tempPath);
+                throw;
+            }
+            finally
+            {
+                if (writeStream != null)
+                {
+                    try { await writeStream.DisposeAsync(); } catch { /* 保留原始异常 */ }
+                }
+                if (readStream != null)
+                {
+                    try { await readStream.DisposeAsync(); } catch { /* 保留原始异常 */ }
+                }
             }
         }
 
-        public static async Task CopyFileAsync(
-            IFileSystem fromFs,
-            IFileSystem toFs,
-            string path,
-            CancellationToken cancellationToken = default)
+        private static async Task TryPreserveLastWriteTimeAsync(IFileSystem toFs, string path, DateTime lastWriteTime)
         {
             try
             {
-                using var readStream = await fromFs.OpenReadForCopyAsync(path, cancellationToken);
-                using var writeStream = await toFs.OpenWriteAsync(path, cancellationToken);
-                await readStream.CopyToAsync(writeStream, 81920, cancellationToken);
-                await writeStream.FlushAsync(cancellationToken);
+                await toFs.SetLastWriteTimeAsync(path, lastWriteTime, CancellationToken.None);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex)
             {
-                await TryDeleteIncompleteTargetAsync(toFs, path);
-                throw;
-            }
-            catch (OperationCanceledException)
-            {
-                await TryDeleteIncompleteTargetAsync(toFs, path);
-                throw;
+                Serilog.Log.Warning(ex, "复制成功但保留目标最后修改时间失败：{Path}", path);
             }
         }
 
-        private static async Task TryDeleteIncompleteTargetAsync(IFileSystem toFs, string path)
+        private static async Task TryCleanupTempAsync(IFileSystem toFs, string tempPath)
         {
             try
             {
-                await toFs.DeleteFileAsync(path);
+                await toFs.CleanupTempFileAsync(tempPath, CancellationToken.None);
             }
             catch
             {
-                // 取消后的清理应尽力而为，保留原始取消异常。
+                // 清理应尽力而为，保留原始异常；绝不触碰最终目标。
             }
         }
     }
+
+    public readonly record struct CopyFileResult(long BytesCopied, string? Hash);
 }

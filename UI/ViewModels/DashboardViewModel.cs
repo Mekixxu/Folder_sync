@@ -103,12 +103,12 @@ namespace FolderSync.UI.ViewModels
                         todaySyncCount += int.Parse(actionMatch.Groups[1].Value)
                                            + int.Parse(actionMatch.Groups[2].Value)
                                            + int.Parse(actionMatch.Groups[3].Value);
-                        if (int.Parse(actionMatch.Groups[4].Value) > 0)
-                        {
-                            todayErrorCount++;
-                        }
                     }
-                    else if (content.Contains("ErrorDetails:", StringComparison.Ordinal))
+
+                    // 连接失败等全局错误可能 failed=0，必须结合整体结果判断。
+                    if ((actionMatch.Success && int.Parse(actionMatch.Groups[4].Value) > 0)
+                        || content.Contains("Success: False", StringComparison.Ordinal)
+                        || content.Contains("ErrorMessage:", StringComparison.Ordinal))
                     {
                         todayErrorCount++;
                     }

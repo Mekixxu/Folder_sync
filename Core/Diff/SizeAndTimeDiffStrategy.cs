@@ -37,8 +37,12 @@ namespace FolderSync.Core.Diff
                 var normalizedSourcePath = NormalizePath(src.Path);
                 if (destDict.TryGetValue(normalizedSourcePath, out var dest))
                 {
-                    // 都是文件，且大小不同，或者源文件更新于目标文件
-                    if (!src.IsDirectory && !dest.IsDirectory)
+                    if (src.IsDirectory != dest.IsDirectory)
+                    {
+                        // 文件/目录同路径冲突：显式提示，默认保留两端现存数据。
+                        actions.Add(new SyncAction(SyncActionType.Conflict, src, dest));
+                    }
+                    else if (!src.IsDirectory)
                     {
                         // 考虑到不同文件系统的精度（如 FAT32 的时间精度只有 2 秒），给予 2 秒的容差
                         if (src.Size != dest.Size || src.LastWriteTime > dest.LastWriteTime.AddSeconds(2))

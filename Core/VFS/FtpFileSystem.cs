@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Threading;
 using FluentFTP;
@@ -19,7 +20,11 @@ namespace FolderSync.Core.VFS
         private readonly string _basePath;
         private readonly string _host;
         private readonly int _port;
+        private readonly List<string> _lastScanFailures = new();
+
         public string RootIdentifier => $"ftp:{_host}:{_port}:{_basePath.ToLowerInvariant()}";
+        public IReadOnlyList<string> LastScanFailures => _lastScanFailures;
+        public bool LastScanComplete => _lastScanFailures.Count == 0;
 
         public FtpFileSystem(string host, string username, string password, int port = 21, string basePath = "/")
         {
@@ -51,6 +56,7 @@ namespace FolderSync.Core.VFS
             bool recursive = true,
             CancellationToken cancellationToken = default)
         {
+            _lastScanFailures.Clear();
             await ConnectAsync(cancellationToken);
             var fullPath = GetFullPath(path);
 
@@ -114,6 +120,88 @@ namespace FolderSync.Core.VFS
             return await _client.OpenWrite(fullPath, FtpDataType.Binary, true, cancellationToken);
         }
 
+        public Task<Stream> OpenWriteToTempAsync(string tempPath, CancellationToken cancellationToken = default)
+        {
+            // 临时文件路径由调用方保证唯一；仍按普通上传路径创建，以便与目标同目录。
+            return OpenWriteAsync(tempPath, cancellationToken);
+        }
+
+        public async Task CommitTempFileAsync(string tempPath, string targetPath, CancellationToken cancellationToken = default)
+        {
+            await ConnectAsync(cancellationToken);
+            var tempFullPath = GetFullPath(tempPath);
+            var targetFullPath = GetFullPath(targetPath);
+
+            if (!await _client.FileExists(tempFullPath, cancellationToken))
+            {
+                throw new IOException($"FTP 临时文件不存在，无法提交：{DescribeDirectory(tempFullPath)}");
+            }
+
+            string? backupFullPath = null;
+            var targetExisted = await _client.FileExists(targetFullPath, cancellationToken);
+            if (targetExisted)
+            {
+                backupFullPath = GetFullPath(VfsPath.CreateSiblingTemporaryPath(targetPath, "bak"));
+                // FTP 没有跨文件事务：先把旧目标改名保留，再尝试提交新文件。
+                await _client.Rename(targetFullPath, backupFullPath, cancellationToken);
+            }
+
+            try
+            {
+                await _client.Rename(tempFullPath, targetFullPath, cancellationToken);
+            }
+            catch (Exception commitException)
+            {
+                if (backupFullPath != null)
+                {
+                    try
+                    {
+                        await _client.Rename(backupFullPath, targetFullPath, cancellationToken);
+                    }
+                    catch (Exception restoreException)
+                    {
+                        throw new IOException(
+                            $"FTP 提交失败，且旧目标恢复失败。旧目标备份位于：{DescribeDirectory(backupFullPath)}",
+                            new AggregateException(commitException, restoreException));
+                    }
+                }
+
+                throw;
+            }
+
+            if (backupFullPath != null)
+            {
+                try
+                {
+                    await _client.DeleteFile(backupFullPath, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    // 备份清理失败不否定已经成功的提交，但必须保留可追溯日志。
+                    Log.Warning(ex, "FTP 提交成功，但旧目标备份清理失败：{BackupPath}", DescribeDirectory(backupFullPath));
+                }
+            }
+        }
+
+        public async Task CleanupTempFileAsync(string tempPath, CancellationToken cancellationToken = default)
+        {
+            await ConnectAsync(cancellationToken);
+            var fullPath = GetFullPath(tempPath);
+            if (await _client.FileExists(fullPath, cancellationToken))
+            {
+                await _client.DeleteFile(fullPath, cancellationToken);
+            }
+        }
+
+        public async Task SetLastWriteTimeAsync(string path, DateTime lastWriteTimeUtc, CancellationToken cancellationToken = default)
+        {
+            await ConnectAsync(cancellationToken);
+            var utc = lastWriteTimeUtc.Kind == DateTimeKind.Utc
+                ? lastWriteTimeUtc
+                : lastWriteTimeUtc.ToUniversalTime();
+            await _client.SetModifiedTime(GetFullPath(path), utc, cancellationToken);
+        }
+
         public async Task DeleteFileAsync(string path, CancellationToken cancellationToken = default)
         {
             await ConnectAsync(cancellationToken);
@@ -136,17 +224,26 @@ namespace FolderSync.Core.VFS
             }
         }
 
-        public async Task DeleteDirectoryAsync(string path, CancellationToken cancellationToken = default)
+        public async Task<bool> DeleteDirectoryIfEmptyAsync(string path, CancellationToken cancellationToken = default)
         {
             await ConnectAsync(cancellationToken);
             var fullPath = GetFullPath(path);
-            
-            if (await _client.DirectoryExists(fullPath, cancellationToken))
+
+            if (!await _client.DirectoryExists(fullPath, cancellationToken))
             {
-                // FTP 中通常删除目录需要先递归删除里面的文件
-                // 但 FluentFTP 提供了帮助我们执行清理的功能：
-                await _client.DeleteDirectory(fullPath, cancellationToken);
+                return true;
             }
+
+            var listing = await _client.GetListing(fullPath, FtpListOption.Auto, cancellationToken);
+            if (listing.Any(item => item.Name != "." && item.Name != ".."))
+            {
+                return false;
+            }
+
+            // FluentFTP 的 DeleteDirectory 会递归删除内容；这里必须使用底层 RMD，
+            // 由服务器在目录非空时拒绝，避免隐式删除未授权项。
+            await _client.Execute($"RMD {fullPath}", cancellationToken);
+            return true;
         }
 
         public async Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default)
@@ -178,6 +275,11 @@ namespace FolderSync.Core.VFS
             if (string.IsNullOrWhiteSpace(relativePath) || relativePath == "/" || relativePath == "\\")
             {
                 return _basePath.TrimEnd('/');
+            }
+
+            if (relativePath.IndexOfAny(new[] { '\r', '\n', '\0' }) >= 0)
+            {
+                throw new UnauthorizedAccessException($"FTP path '{relativePath}' contains control characters and is not allowed.");
             }
 
             var relNormalized = relativePath.Replace('\\', '/').Trim().TrimStart('/');
@@ -279,9 +381,16 @@ namespace FolderSync.Core.VFS
                 {
                     items = await ListSingleDirectoryAsync(currentPath, cancellationToken);
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception ex) when (!string.Equals(NormalizePath(currentPath), NormalizePath(rootPath), StringComparison.OrdinalIgnoreCase))
                 {
-                    Log.Warning(ex, "FTP 递归列举跳过异常子目录：{Directory}", DescribeDirectory(currentPath));
+                    // 记录不完整扫描，调用方禁止据此生成删除动作或刷新基线。
+                    var failedDirectory = DescribeDirectory(currentPath);
+                    _lastScanFailures.Add(failedDirectory);
+                    Log.Warning(ex, "FTP 递归列举跳过异常子目录：{Directory}", failedDirectory);
                     continue;
                 }
 
@@ -303,6 +412,7 @@ namespace FolderSync.Core.VFS
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             return result;
         }
 

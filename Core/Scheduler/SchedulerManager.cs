@@ -18,7 +18,6 @@ namespace FolderSync.Core.Scheduler
         public static SchedulerManager Instance => _instance.Value;
 
         private readonly SemaphoreSlim _gate = new(1, 1);
-        private readonly Dictionary<string, SyncExecutor> _executors = new(StringComparer.OrdinalIgnoreCase);
         private IScheduler? _scheduler;
 
         private SchedulerManager() { }
@@ -58,12 +57,6 @@ namespace FolderSync.Core.Scheduler
                     await _scheduler.Shutdown(waitForJobsToComplete: false, cancellationToken);
                     Log.Information("Quartz Scheduler stopped successfully.");
                 }
-
-                foreach (var executor in _executors.Values)
-                {
-                    executor.Dispose();
-                }
-                _executors.Clear();
             }
             finally
             {
@@ -78,20 +71,12 @@ namespace FolderSync.Core.Scheduler
         /// <param name="taskId">唯一任务ID</param>
         /// <param name="taskName">用户友好的任务名</param>
         /// <param name="cronExpression">Quartz 支持的 Cron 表达式</param>
-        /// <param name="executor">同步执行器实例</param>
-        public async Task AddOrUpdateJobAsync(string taskId, string taskName, string cronExpression, SyncExecutor executor)
+        public async Task AddOrUpdateJobAsync(string taskId, string taskName, string cronExpression)
         {
             await _gate.WaitAsync();
             try
             {
                 if (_scheduler == null) throw new InvalidOperationException("Scheduler is not started.");
-
-                // 先释放同 key 的旧执行器，避免 FTP 连接句柄泄漏
-                if (_executors.TryGetValue(taskId, out var previousExecutor))
-                {
-                    previousExecutor.Dispose();
-                    _executors.Remove(taskId);
-                }
 
                 var jobKey = new JobKey(taskId, "SyncJobs");
                 var triggerKey = new TriggerKey(taskId, "SyncTriggers");
@@ -109,9 +94,6 @@ namespace FolderSync.Core.Scheduler
                     .UsingJobData(SyncJob.JobDataKey_TaskName, taskName)
                     .Build();
 
-                // 因为 SyncExecutor 是一个对象引用，无法通过原生的简单类型 JobDataMap 保存，我们需要将其放入到对象级 JobDataMap 中
-                job.JobDataMap[SyncJob.JobDataKey_SyncExecutor] = executor;
-
                 var trigger = TriggerBuilder.Create()
                     .WithIdentity(triggerKey)
                     .WithCronSchedule(cronExpression, x => x.WithMisfireHandlingInstructionDoNothing())
@@ -119,7 +101,6 @@ namespace FolderSync.Core.Scheduler
 
                 await _scheduler.ScheduleJob(job, trigger);
 
-                _executors[taskId] = executor;
                 Log.Information("Job {TaskName} ({TaskId}) scheduled with cron: {CronExpression}", taskName, taskId, cronExpression);
             }
             finally
@@ -142,12 +123,6 @@ namespace FolderSync.Core.Scheduler
                 {
                     await _scheduler.DeleteJob(jobKey);
                     Log.Information("Job ({TaskId}) removed successfully.", taskId);
-                }
-
-                if (_executors.TryGetValue(taskId, out var executor))
-                {
-                    executor.Dispose();
-                    _executors.Remove(taskId);
                 }
             }
             finally

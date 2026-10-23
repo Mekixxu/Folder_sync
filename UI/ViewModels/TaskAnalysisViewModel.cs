@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
@@ -32,10 +33,21 @@ namespace FolderSync.UI.ViewModels
         public bool IsProtectedByDeliveredState { get; init; }
         public bool HasWarning { get; init; }
 
+        public bool IsSelectable =>
+            ActionType is not null
+            && ActionType != FolderSync.Core.Diff.SyncActionType.Conflict
+            && Direction != AnalysisDirection.None
+            && !IsProtectedByDeliveredState;
+
         public bool ShouldSync
         {
             get => _shouldSync;
-            set => SetProperty(ref _shouldSync, value);
+            set
+            {
+                // 无合法动作/方向的分析行不能被勾选执行，避免隐式反向覆盖。
+                var normalized = value && IsSelectable;
+                SetProperty(ref _shouldSync, normalized);
+            }
         }
     }
 
@@ -230,17 +242,65 @@ namespace FolderSync.UI.ViewModels
                 {
                     var report = await _service.ExecuteSelectedAsync(_task, selected, token);
                     var reportPath = SyncReportFileWriter.Write(_task.Id, _task.TaskName, report);
-                    _service.SaveAnalysis(_task, selected);
-                    return (report, reportPath);
+
+                    // 失败/取消时保留未成功项，避免把未执行内容当成已处理。
+                    var successfulPaths = new HashSet<string>(
+                        report.SuccessDetails.Select(d => d.ItemPath),
+                        StringComparer.OrdinalIgnoreCase);
+                    var remaining = selected
+                        .Where(i => !successfulPaths.Contains(i.RelativePath))
+                        .ToList();
+                    if (!report.WasCancelled && remaining.Count < selected.Count)
+                    {
+                        _service.SaveAnalysis(_task, remaining);
+                    }
+
+                    return (report, reportPath, remainingCount: remaining.Count);
                 }, token);
 
-                _onSaved?.Invoke();
-                HasUnsavedChanges = false;
-                MessageDialogService.ShowInfo(
-                    "Msg.ExecuteSelectedComplete",
-                    "Title.ExecuteComplete",
-                    selected.Count(x => x.ShouldSync),
-                    Path.GetFileName(executionResult.reportPath));
+                if (!executionResult.report.WasCancelled
+                    && executionResult.remainingCount < selected.Count)
+                {
+                    _onSaved?.Invoke();
+                }
+
+                HasUnsavedChanges = executionResult.remainingCount > 0;
+                var succeeded = executionResult.report.CreatedFiles
+                                + executionResult.report.UpdatedFiles
+                                + executionResult.report.DeletedFiles;
+                var failed = executionResult.report.FailedFiles;
+                var skipped = executionResult.report.WarningDetails.Count;
+                var reportFileName = Path.GetFileName(executionResult.reportPath);
+
+                if (executionResult.report.WasCancelled)
+                {
+                    MessageDialogService.ShowInfo(
+                        "Msg.ExecuteSelectedStopped",
+                        "Title.Stopped",
+                        succeeded,
+                        failed,
+                        reportFileName);
+                }
+                else if (!string.IsNullOrWhiteSpace(executionResult.report.ErrorMessage))
+                {
+                    MessageDialogService.ShowError(
+                        "Msg.ExecuteSelectedFailed",
+                        "Title.ExecuteFailed",
+                        executionResult.report.ErrorMessage,
+                        succeeded,
+                        failed,
+                        reportFileName);
+                }
+                else
+                {
+                    MessageDialogService.ShowInfo(
+                        "Msg.ExecuteSelectedComplete",
+                        "Title.ExecuteComplete",
+                        succeeded,
+                        failed,
+                        skipped,
+                        reportFileName);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -338,6 +398,9 @@ namespace FolderSync.UI.ViewModels
                 IsProtectedByDeliveredState = i.IsProtectedByDeliveredState,
                 HasWarning = i.HasWarning,
                 ShouldSync = i.ShouldSync
+                    && i.ActionType is not null
+                    && i.ActionType != FolderSync.Core.Diff.SyncActionType.Conflict
+                    && i.Direction != AnalysisDirection.None
             };
         }
 
@@ -356,7 +419,7 @@ namespace FolderSync.UI.ViewModels
                 Reason = i.Reason,
                 IsProtectedByDeliveredState = i.IsProtectedByDeliveredState,
                 HasWarning = i.HasWarning,
-                ShouldSync = i.ShouldSync
+                ShouldSync = i.ShouldSync && i.IsSelectable
             }).ToList();
         }
 
@@ -394,7 +457,12 @@ namespace FolderSync.UI.ViewModels
             _summaryDirty = false;
             var selected = Items.Where(i => i.ShouldSync && !i.IsDirectory).ToList();
             _selectedSyncFileCount = selected.Count;
-            _totalSyncSizeText = FormatBytes(selected.Sum(i => i.SourceSize ?? 0L));
+            var transferBytes = selected
+                .Where(i => i.ActionType != FolderSync.Core.Diff.SyncActionType.Delete)
+                .Sum(i => i.Direction == AnalysisDirection.BToA
+                    ? i.DestSize ?? 0L
+                    : i.SourceSize ?? 0L);
+            _totalSyncSizeText = FormatBytes(transferBytes);
             OnPropertyChanged(nameof(SelectedSyncFileCount));
             OnPropertyChanged(nameof(TotalSyncSizeText));
         }

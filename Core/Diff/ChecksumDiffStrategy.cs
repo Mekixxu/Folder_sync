@@ -36,7 +36,11 @@ namespace FolderSync.Core.Diff
                 var normalizedSourcePath = NormalizePath(src.Path);
                 if (destDict.TryGetValue(normalizedSourcePath, out var dest))
                 {
-                    if (!src.IsDirectory && !dest.IsDirectory)
+                    if (src.IsDirectory != dest.IsDirectory)
+                    {
+                        actions.Add(new SyncAction(SyncActionType.Conflict, src, dest));
+                    }
+                    else if (!src.IsDirectory)
                     {
                         // 快速过滤：如果文件大小都不一样，内容肯定不一样，无需计算哈希
                         if (src.Size != dest.Size)

@@ -1,4 +1,4 @@
-﻿# Folder Sync 程序架构与技术栈分析
+# Folder Sync 程序架构与技术栈分析
 
 ## 1. 需求分析总结
 
@@ -10,7 +10,7 @@
   - 单向更新（A -> B，新增+修改）
   - 单向一次性同步（A -> B，每个文件仅首次成功同步；目标端后续删除也不补发）
   - 单向镜像（A -> B，新增+修改+删除）
-  - 双向同步（定时执行链路已接入 SQLite 状态基线，支持可靠判定与冲突处理；手动分析/执行链路尚未接入，属于已知技术债，见第 7 节）
+  - 双向同步（定时与手动分析/执行链路均接入 SQLite 状态基线，支持可靠判定、类型冲突阻塞与按成功路径增量更新基线）
 - **差异比对机制**：
   - 快速比对（文件大小+时间）
   - 哈希比对（当前固定采用 **xxHash64**，性能优先）
@@ -55,6 +55,8 @@ Folder_sync/
 ├─ MainWindow.xaml.cs
 ├─ FolderSync.csproj
 ├─ CLAUDE.md
+├─ code-review-2026-10-20.md
+├─ llm-execution-plan-2026-10-20.md
 ├─ .gitignore
 ├─ Core/
 ├─ UI/
@@ -86,9 +88,9 @@ Folder_sync/
     - `UI/Services/TrayIconService.cs`, `UI/Services/StartupRegistrationService.cs`
 
 - **VFS 抽象层**
-  - 职责：统一 Local/SMB/FTP 的读写接口；FTP 递归列举采用应用层逐层遍历，并在异常子目录场景下记录 warning 后跳过，避免整次分析因单个慢目录超时失败；单文件信息查询在服务端返回异常路径元数据时会回退到调用方请求路径，避免分析链路把已存在目标误判为缺失；目录列举在服务端未返回 `FullName` 时会基于当前目录补全绝对路径，避免嵌套目录内已存在文件被误判为仅源端存在。
+  - 职责：统一 Local/SMB/FTP 的读写接口；FTP 递归列举采用应用层逐层遍历，异常子目录会记录到 `LastScanFailures` 并标记扫描不完整，调用方据此禁止删除与基线刷新；单文件信息查询在服务端返回异常路径元数据时会回退到调用方请求路径；目录列举在服务端未返回 `FullName` 时会基于当前目录补全绝对路径。复制写入统一走“同目录临时文件 + 提交”，已有目标只在提交点被替换；目录删除仅允许空目录。
   - 目录：`Core/VFS`
-  - 关键文件：`IFileSystem.cs`, `LocalFileSystem.cs`, `FtpFileSystem.cs`, `FileItem.cs`
+  - 关键文件：`IFileSystem.cs`, `LocalFileSystem.cs`, `FtpFileSystem.cs`, `FileItem.cs`, `VfsPath.cs`
 
 - **过滤引擎**
   - 职责：白/黑名单并行评估，支持扩展名/大小/时间(hour)/正则，含冲突检测，并对空配置/空文件项做防御性处理。
@@ -135,7 +137,8 @@ Core/
 │  ├─ IFileSystem.cs
 │  ├─ FileItem.cs
 │  ├─ LocalFileSystem.cs
-│  └─ FtpFileSystem.cs
+│  ├─ FtpFileSystem.cs
+│  └─ VfsPath.cs
 ├─ Filters/
 │  ├─ IFilter.cs
 │  ├─ FilterEngine.cs
@@ -143,6 +146,7 @@ Core/
 │  ├─ SizeFilter.cs
 │  ├─ TimeFilter.cs
 │  ├─ RegexFilter.cs
+│  ├─ FilterEvaluationException.cs
 │  ├─ DualListFilterConfiguration.cs
 │  └─ FilterConflictDetector.cs
 ├─ Diff/
@@ -160,7 +164,8 @@ Core/
 │  ├─ SyncTaskFactory.cs
 │  ├─ TaskAnalysisService.cs
 │  ├─ TaskAnalysisModels.cs
-│  └─ StructureAwarePathHelper.cs
+│  ├─ StructureAwarePathHelper.cs
+│  └─ TaskExecutionCoordinator.cs
 ├─ Config/
 │  ├─ SyncTaskDefinition.cs
 │  ├─ TaskRepository.cs
@@ -208,7 +213,11 @@ FolderSync.Core.Tests/
 ├─ PathSafetyValidatorTests.cs
 ├─ OneWayDeliveryStateStoreTests.cs
 ├─ StructureAwarePathHelperTests.cs
-└─ FilterEngineTests.cs
+├─ FilterEngineTests.cs
+├─ LocalFileSystemTransactionTests.cs
+├─ TwoWayStateStoreTests.cs
+├─ RegexFilterTimeoutTests.cs
+└─ TaskRepositoryConcurrencyTests.cs
 ```
 
 > 测试项目说明：`FolderSync.Core.Tests` 引用 WPF 主工程，测试 `net8.0-windows` + `testhost` 依赖 `Microsoft.WindowsDesktop.App`，**只能在 Windows 上 `dotnet test` 运行**；Linux 交叉编译环境仅能 `dotnet build` 验证编译。`AssemblyInfo.cs` 通过 `InternalsVisibleTo("FolderSync.Core.Tests")` 暴露 internal 类型（如 `StructureAwarePathHelper`）。
@@ -220,7 +229,7 @@ FolderSync.Core.Tests/
 1. 已完成：项目初始化、UI 骨架、VFS、过滤、Diff、Sync、Scheduler、Logs/Reports、任务/设置本地持久化。
 2. 已完成：主框架与 Dashboard/Tasks/Logs/TaskEditor 视觉现代化（统一样式令牌、批量操作区层级优化、分析窗口可读性提升）。
 3. 已完成：过滤规则升级为白/黑名单并行，时间粒度 hour，保存冲突提示。
-4. 已完成（定时链路）：双向同步接入 SQLite 基线，支持可靠变更判定与默认冲突策略（保数据优先+时间优先）；手动分析/执行链路待打通，见第 7 节执行计划。
+4. 已完成：双向同步定时与手动链路均接入 SQLite 基线，支持可靠变更判定、类型冲突阻塞与按成功路径增量更新基线。
 5. 已完成：Windows 托盘常驻，支持关闭窗口后隐藏到托盘继续运行定时任务，并可从托盘恢复或退出。
 6. 已完成：当前用户级开机启动，设置页可写入或移除注册表 Run 项。
 7. 已完成：开机自启动场景使用启动参数静默驻留托盘，手动启动仍正常显示主窗口。
@@ -240,7 +249,7 @@ FolderSync.Core.Tests/
 21. 已完成：分析结果窗口点击“执行已勾选项”时，实际执行、报告落盘和状态保存会切到后台线程，避免 `GetAwaiter().GetResult()` 阻塞 UI 主线程导致整个程序假死。
 22. 已完成：分析结果窗口首次打开与点击“重新分析”都会走后台异步加载，并显示“正在分析”遮罩；加载期间禁用列表与操作按钮，避免再次误判为程序卡死。
 23. 已完成：任务页批量分析/执行/同步与分析结果窗口中的分析/执行均支持“停止”按钮；停止后会通过 `CancellationToken` 中断当前操作，状态文案会切换为“正在停止...”。
-24. 已完成：当用户停止同步时，如果当前文件正处于传输中，复制层会捕获取消并主动删除目标端未传输完整的文件，避免残留半截文件。
+24. 已完成：复制改为同目录临时文件提交，用户停止或传输失败时只清理本次临时文件，不再删除/截断原有目标；已完整提交的文件保留。
 25. 已完成：分析与同步改为“结构感知”策略。若某个文件命中过滤规则，其所有父目录会自动并入分析/同步集合；目标端仅按完整相对路径匹配，不会把根目录下的同名文件误当成子目录内文件的匹配项；执行顺序也会保证先创建目录，再同步子文件。
 26. 已完成：回滚分析阶段的当前文件实时提示与逐项进度回调，避免 WPF 频繁刷新对大目录/FTP 分析造成肉眼可见的性能损失；分析阶段恢复为仅显示总体状态文案与轻量进度条。
 27. 已完成：修复 FTP 递归列举在部分服务端未返回条目 `FullName` 时的路径补全错误；嵌套目录中的目标文件会基于当前目录正确还原相对路径，避免 `Local -> FTP` 分析把 FTP 已存在文件误判为“仅源端存在，需创建”。
@@ -248,6 +257,7 @@ FolderSync.Core.Tests/
 29. 已完成：Dashboard 显示真实统计（活动任务数、今日同步文件数、今日失败任务数，均由后台线程扫描任务仓库与 `log` 报告汇总）；任务列表支持“立即运行”，点击后直接分析并执行该任务一次，不受调度计划与手动触发标记影响。
 30. 已完成：引入 `MessageDialogService`，所有 ViewModel 的 `MessageBox.Show` 统一改走本地化资源键（`Msg.*`/`Title.*`），位占位符支持格式化参数；`Window` 级硬编码中文文案保留，ViewModel 侧已清零。
 31. 已完成：新增 `FolderSync.Core.Tests` xUnit 回归测试项目（覆盖 LocalFileSystem 路径安全、PathSafetyValidator 重叠检测、OneWayDeliveryStateStore 读写/批量/重置、StructureAwarePathHelper 父目录补齐、FilterEngine 白/黑名单组合）；`FolderSync.csproj` 将 `FolderSync.Core.Tests` 目录排除出主工程编译。测试仅能在 Windows 上运行。
+32. 已完成（0.0.55）：按 2026-10-20 审查修复 P0/P1 重点问题——恢复主工程构建、复制临时文件提交保护原目标、空目录删除限制、FTP 扫描完整性进入删除/基线决策、双向按成功路径增量更新基线、一次性投递取消检查点、定时/手动共享任务运行锁与每次运行独占执行器、类型冲突与过期分析前置校验、正则超时失败关闭、仓库跨实例锁与原子写、部分报告落盘与 UI 真实成功/失败计数。剩余策略性问题见第 7 节。
 
 ---
 
@@ -267,13 +277,22 @@ FolderSync.Core.Tests/
 
 > 后续负责局部修改代码的 LLM 必须先阅读本节与执行计划，再开始编码。
 
-当前代码审查发现的主要技术债包括：应用启动后未从 `tasks.json` 恢复定时任务、UI 线程存在 `.GetAwaiter().GetResult()` 阻塞、Local/FTP 路径包含检查不严谨、复制失败可能残留半截文件、缺少源/目标路径重叠保护、缺少单实例互斥、JSON 仓库写入非原子、旧 `SyncExecutor`/FTP 连接未释放、双向同步手动链路与 SQLite 基线脱节、日志保留天数未生效等。
+2026-10-20 审查的 P0/P1 重点项已在 0.0.55 修复（见第 4 节第 32 条）。仍待处理的主要事项：
+
+1. **退出生命周期**：`App.OnExit` 仍为 `async void`，调度器 `Shutdown(waitForJobsToComplete:false)` 不会等待运行中的任务；退出前统一取消、有限等待与资源释放尚未实现。
+2. **状态世代**：任务复用 Id，但端点/过滤范围变化后仍可能复用旧的双向基线或一次性投递记录。需要端点与配置修订标识、显式状态世代/迁移策略。
+3. **大小写敏感路径**：Diff、结构辅助与状态库仍统一使用 `OrdinalIgnoreCase`；非 Windows FTP 的 `A.txt` / `a.txt` 无法区分，Windows 目标也无法表达冲突。需要按端点暴露路径比较能力并显式阻断不可表达冲突。
+4. **周期触发语义**：周期触发仍用 Cron 步进，不能表达固定间隔（例如 7 秒在每分钟末会出现 4 秒间隔）。需产品确认“固定间隔”还是“日历步进”后再迁移 SimpleTrigger。
+5. **重解析点安全**：Local 路径安全检查仍为词法校验，未处理 junction/symlink 指向根目录外部；FTP 重叠校验与实际 VFS 的 URL 解码仍未完全共用同一规范化函数。
+6. **冲突产品策略**：类型冲突已改为默认阻断并保留数据；是否允许用户确认后替换/备份、双版本保留与交互式冲突处理仍待产品定义。
 
 详细问题清单与逐文件修复步骤：
-- 审查报告：`.trae/documents/code-review-2026-08-16.md`
-- 执行计划：`.trae/documents/improvement-execution-plan-2026-08-16.md`
+- 本轮审查：`code-review-2026-10-20.md`
+- 本轮执行计划：`llm-execution-plan-2026-10-20.md`
+- 历史审查：`.trae/documents/code-review-2026-08-16.md`
+- 历史执行计划：`.trae/documents/improvement-execution-plan-2026-08-16.md`
 
 执行顺序硬性要求：
 1. 按 `P0 -> P1 -> P2` 顺序执行；每个任务完成必须 `dotnet build -c Release` 并单独 `git commit`。
-2. 全部 P0/P1 完成后，版本号从 `0.0.54` 递增到 `0.0.55` 并发布 portable exe。
+2. 本轮版本号已从 `0.0.54` 递增到 `0.0.55`；后续每次交付继续递增 `0.0.1` 并发布 portable exe。
 3. 新增/移动文件时，必须同步更新本文件第 3 节目录树。
